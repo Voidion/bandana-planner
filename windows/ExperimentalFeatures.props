@@ -21,6 +21,10 @@
     -->
     <UseExperimentalNuget>true</UseExperimentalNuget>
 
+    <!-- Native modules (react-native-svg) read these to build their New Architecture (Fabric, WinUI 3) version, not the old UWP one. -->
+    <UseFabric>true</UseFabric>
+    <UseWinUI3>true</UseWinUI3>
+
     <ReactExperimentalFeaturesSet>true</ReactExperimentalFeaturesSet>
   </PropertyGroup>
 
