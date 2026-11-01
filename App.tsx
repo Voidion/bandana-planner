@@ -1,21 +1,28 @@
-/* Bandana Planner for Windows: fabric inventory and cut plans, saved on this computer. */
+/* Bandana Planner for Windows: runs, fabric and finished stock, saved on this computer. */
 import React, { useEffect, useState } from 'react';
 import { Pressable, StatusBar, Text, View } from 'react-native';
-import { CutPlansScreen } from './src/screens/CutPlansScreen';
+import { clock } from './src/lib/format';
+import { timerMs } from './src/lib/plan';
 import { FabricScreen } from './src/screens/FabricScreen';
-import { SetupScreen } from './src/screens/SetupScreen';
-import { addPlan, editPlan, flush, loadShop, useSaveState, useShop } from './src/state/store';
-import { BatchesIcon, FabricIcon, RulerIcon, ScissorsIcon } from './src/ui/icons';
-import { Button, SnackBar, T } from './src/ui/kit';
+import { TimerCard } from './src/screens/runs/parts';
+import { RunsScreen } from './src/screens/runs/RunsScreen';
+import { FixTimerSheet } from './src/screens/runs/sheets';
+import { SettingsScreen, type SettingsTab } from './src/screens/SettingsScreen';
+import { StockScreen } from './src/screens/StockScreen';
+import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
+import { BatchesIcon, BoxIcon, FabricIcon, GearIcon, ScissorsIcon } from './src/ui/icons';
+import { Button, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
+import { useNow } from './src/ui/useNow';
 
-type Route = 'fabric' | 'plans' | 'setup';
+type Route = 'runs' | 'fabric' | 'stock' | 'settings';
 
 export default function App() {
   const t = useTheme();
   const [ready, setReady] = useState<'loading' | 'ok' | 'error'>('loading');
-  const [route, setRoute] = useState<Route>('plans');
-  const [planSel, setPlanSel] = useState<string | null>(null);
+  const [route, setRoute] = useState<Route>('runs');
+  const [runSel, setRunSel] = useState<string | null>(null);
+  const [setTab, setSetTab] = useState<SettingsTab>('sizes');
 
   const load = () => {
     setReady('loading');
@@ -27,6 +34,10 @@ export default function App() {
       flush();
     };
   }, []);
+  const openRun = (id: string) => {
+    setRunSel(id);
+    setRoute('runs');
+  };
 
   if (ready === 'error') {
     return (
@@ -42,39 +53,70 @@ export default function App() {
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.bg }}>
       <StatusBar barStyle={t.dark ? 'light-content' : 'dark-content'} />
-      <Sidebar route={route} setRoute={setRoute} />
+      <Sidebar route={route} setRoute={setRoute} openRun={openRun} />
       <View style={{ flex: 1, backgroundColor: t.bg }}>
-        {route === 'fabric' ? (
-          <FabricScreen
-            onPlanWith={id => {
-              const pid = addPlan();
-              editPlan(pid, { body: id, ties: id });
-              setPlanSel(pid);
-              setRoute('plans');
-            }}
-          />
-        ) : route === 'plans' ? (
-          <CutPlansScreen sel={planSel} setSel={setPlanSel} goSetup={() => setRoute('setup')} />
-        ) : (
-          <SetupScreen />
-        )}
+        <StaleTimer openRun={openRun} />
+        <View style={{ flex: 1 }}>
+          {route === 'fabric' ? (
+            <FabricScreen onPlanWith={id => openRun(planRun({ body: id, ties: id }))} openRun={openRun} />
+          ) : route === 'runs' ? (
+            <RunsScreen sel={runSel} setSel={setRunSel} goSetup={() => { setSetTab('sizes'); setRoute('settings'); }} />
+          ) : route === 'stock' ? (
+            <StockScreen openRun={openRun} />
+          ) : (
+            <SettingsScreen tab={setTab} setTab={setSetTab} openRun={openRun} />
+          )}
+        </View>
       </View>
       <SnackBar />
     </View>
   );
 }
 
-function Sidebar({ route, setRoute }: { route: Route; setRoute: (r: Route) => void }) {
+/** A timer left running past the check-in time: keep it, fix the time, or close it out. */
+function StaleTimer({ openRun }: { openRun: (id: string) => void }) {
+  const shop = useShop();
+  const t = useTheme();
+  const m = shop.timer;
+  useNow(!!m && !m.paused, 30000);
+  const [fix, setFix] = useState(false);
+  if (!m) return null;
+  const lim = shop.cfg.staleMins * 6e4;
+  const checked = m.checked;
+  const stale = timerMs(m) > lim && (!checked || Date.now() - checked > lim);
+  if (!stale && !fix) return null;
+  const r = shop.runs.find(x => x.id === m.run);
+  const s = r && r.steps.find(x => x.id === m.step);
+  if (!r || !s) return null;
+  return (
+    <>
+      {stale ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: t.warnTint, paddingHorizontal: 24, paddingVertical: 12 }}>
+          <Pressable style={{ flex: 1 }} onPress={() => openRun(r.id)}>
+            <Text style={{ color: t.dark ? t.onWarn : t.onWarn, fontSize: F.f15 }}>
+              <Text style={{ fontWeight: '700' }}>Still going? </Text>Your timer for {s.name} has run {clock(timerMs(m))}.
+            </Text>
+          </Pressable>
+          <Button small kind="secondary" title="Keep going" onPress={() => update(x => ({ ...x, timer: x.timer ? { ...x.timer, checked: Date.now() } : null }))} />
+          <Button small kind="secondary" title="Fix the time" onPress={() => setFix(true)} />
+          <Button small kind="ghost" title="Close out" onPress={() => { const was = closeOutTimer(); showSnack('Timer stopped. No time recorded', () => restoreTimer(was)); }} />
+        </View>
+      ) : null}
+      {fix ? <FixTimerSheet onClose={() => setFix(false)} /> : null}
+    </>
+  );
+}
+
+function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Route) => void; openRun: (id: string) => void }) {
   const t = useTheme();
   const shop = useShop();
   const save = useSaveState();
   const low = shop.fabrics.filter(f => f.low > 0 && f.yards <= f.low).length;
-  const open = shop.plans.filter(p => p.status === 'planning').length;
+  const active = shop.runs.filter(r => r.status === 'active').length;
+  const stock = Object.values(stockBySize(shop)).reduce((a, b) => a + b, 0);
   const item = (r: Route, label: string, icon: (c: string) => React.ReactNode, badge?: string, warn?: boolean) => {
     const on = route === r;
-    return (
-      <NavItem key={r} on={on} label={label} icon={icon(on ? t.onTint : t.text2)} badge={badge} warn={warn} onPress={() => setRoute(r)} />
-    );
+    return <NavItem key={r} on={on} label={label} icon={icon(on ? t.onTint : t.text2)} badge={badge} warn={warn} onPress={() => setRoute(r)} />;
   };
   return (
     <View style={{ width: 240, backgroundColor: t.surface, borderRightWidth: 1, borderRightColor: t.line, paddingHorizontal: 12, paddingTop: 22, paddingBottom: 16, gap: 4 }}>
@@ -84,10 +126,12 @@ function Sidebar({ route, setRoute }: { route: Route; setRoute: (r: Route) => vo
         </View>
         <T style={{ fontWeight: '700', fontSize: 16 }}>Bandana Planner</T>
       </View>
-      {item('plans', 'Cut plans', c => <ScissorsIcon color={c} />, open ? String(open) : undefined)}
+      {item('runs', 'Runs', c => <ScissorsIcon color={c} />, active ? String(active) : undefined)}
       {item('fabric', 'Fabric', c => <FabricIcon color={c} />, low ? `${low} low` : undefined, true)}
-      {item('setup', 'Sizes & mats', c => <RulerIcon color={c} />)}
+      {item('stock', 'Finished stock', c => <BoxIcon color={c} />, stock ? String(stock) : undefined)}
+      {item('settings', 'Settings', c => <GearIcon color={c} />)}
       <View style={{ flex: 1 }} />
+      <TimerCard onOpen={openRun} />
       <Text style={{ fontSize: F.f12, color: save === 'error' ? t.danger : t.text3, paddingHorizontal: 10 }}>
         {save === 'error' ? 'Couldn’t save. Retrying with your next change.' : save === 'saving' ? 'Saving…' : 'Saved on this computer'}
       </Text>

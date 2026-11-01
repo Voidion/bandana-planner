@@ -25,3 +25,35 @@ export function fmtDate(iso: string | null) {
   const d = new Date(iso + 'T12:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
 }
+
+/** 95 → "1h 35m", 40 → "40 min" (as the prototype writes time) */
+export const mins = (m: number) => {
+  m = Math.round(m || 0);
+  const h = Math.floor(m / 60),
+    r = m % 60;
+  return h ? (r ? `${h}h ${r}m` : `${h}h`) : `${r} min`;
+};
+/** A running timer: 4:05, 1:02:09 */
+export const clock = (ms: number) => {
+  const s = Math.max(0, Math.floor(ms / 1000)),
+    h = Math.floor(s / 3600),
+    m = Math.floor((s % 3600) / 60),
+    x = s % 60;
+  if (h >= 24) {
+    const d = Math.floor(h / 24);
+    return d >= 100 ? '99d+' : d + 'd ' + (h % 24) + 'h';
+  }
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+};
+export const money0 = (n: number) => (Math.round(n) < 0 ? '−' : '') + '$' + Math.abs(Math.round(n)).toLocaleString('en-US');
+export const fmtN = (n: number) => String(Math.round(n * 100) / 100);
+
+/** "Due in 3 days", "2 days late" from days-from-today */
+export const relDue = (d: number | null) =>
+  d == null ? 'No date' : d < 0 ? `${-d} day${d === -1 ? '' : 's'} late` : d === 0 ? 'Due today' : d === 1 ? 'Due tomorrow' : `Due in ${d} days`;
+
+export function dayLabel(day: string | null, opts: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' }) {
+  if (!day) return '';
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', opts);
+}

@@ -58,3 +58,71 @@ export const BatchesIcon = I(
     <Path d="M8.6 12.5h6.8" />
   </>,
 );
+
+/* filled shapes (timer controls) */
+const F = (children: React.ReactNode) =>
+  function Icon({ size = 16, color }: P) {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+        {children}
+      </Svg>
+    );
+  };
+export const PlayIcon = F(<Path d="M8 5.5v13l10.5-6.5z" />);
+export const StopIcon = F(<Rect x="6" y="6" width="12" height="12" rx="2" />);
+export const PauseIcon = F(
+  <>
+    <Rect x="6.5" y="5" width="4" height="14" rx="1.2" />
+    <Rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+  </>,
+);
+export const BoxIcon = I(
+  <>
+    <Path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z" />
+    <Path d="M3.5 7.5 12 12l8.5-4.5" />
+    <Path d="M12 12v9" />
+  </>,
+);
+export const WorkflowIcon = I(
+  <>
+    <Path d="M3.5 6.5l2 2 3.5-3.5" />
+    <Path d="M3.5 13l2 2 3.5-3.5" />
+    <Path d="M3.5 19.5h2.2" />
+    <Path d="M12.5 6.5H21" />
+    <Path d="M12.5 13H21" />
+    <Path d="M9.5 19.5H21" />
+  </>,
+);
+export const EditIcon = I(
+  <>
+    <Path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z" />
+    <Path d="M14.5 6.5l3 3" />
+  </>,
+);
+export const ClockIcon = I(
+  <>
+    <Circle cx="12" cy="12" r="8.5" />
+    <Path d="M12 7.5V12l3 2" />
+  </>,
+);
+export const CalIcon = I(
+  <>
+    <Rect x="4" y="5" width="16" height="15" rx="2" />
+    <Path d="M4 10h16M9 3v4M15 3v4" />
+  </>,
+);
+export const DefectIcon = I(
+  <>
+    <Path d="M12 8.6v4.6" />
+    <Path d="M12 16.6h.01" />
+    <Path d="M10.3 4.2 2.9 17.4A1.9 1.9 0 0 0 4.6 20.2h14.8a1.9 1.9 0 0 0 1.7-2.8L13.7 4.2a1.9 1.9 0 0 0-3.4 0Z" />
+  </>,
+);
+export const GearIcon = I(
+  <>
+    <Circle cx="12" cy="12" r="3" />
+    <Path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" />
+  </>,
+);
+export const UpIcon = I(<Path d="M6.5 14.5 12 9l5.5 5.5" />);
+export const DownIcon = I(<Path d="M6.5 9.5 12 15l5.5-5.5" />);

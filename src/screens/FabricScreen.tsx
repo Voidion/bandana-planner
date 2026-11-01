@@ -11,7 +11,7 @@ import { F, R, useTheme } from '../ui/theme';
 
 const isLow = (f: Fabric) => f.low > 0 && f.yards <= f.low;
 
-export function FabricScreen({ onPlanWith }: { onPlanWith: (fabricId: string) => void }) {
+export function FabricScreen({ onPlanWith, openRun }: { onPlanWith: (fabricId: string) => void; openRun: (id: string) => void }) {
   const shop = useShop();
   const t = useTheme();
   const [sel, setSel] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export function FabricScreen({ onPlanWith }: { onPlanWith: (fabricId: string) =>
         </View>
         <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 0, gap: 12 }}>
           {shop.fabrics.length === 0 ? (
-            <Empty icon={<FabricIcon color={t.action} size={26} />} title="Add your first fabric" body="Track the yards on the shelf and what you paid. Cut plans take fabric off the shelf when you cut, and warn you when a bolt runs low." action={<Button title="Add fabric" onPress={() => setAdding(true)} />} />
+            <Empty icon={<FabricIcon color={t.action} size={26} />} title="Add your first fabric" body="Track the yards on the shelf and what you paid. Runs take fabric off the shelf when you cut, and warn you when a bolt runs low." action={<Button title="Add fabric" onPress={() => setAdding(true)} />} />
           ) : list.length === 0 ? (
             <T s="sub">No fabric matches “{q}”.</T>
           ) : (
@@ -89,7 +89,7 @@ export function FabricScreen({ onPlanWith }: { onPlanWith: (fabricId: string) =>
         </ScrollView>
       </View>
       <View style={{ flex: 1 }}>
-        {cur ? <FabricDetail key={cur.id} f={cur} onPlanWith={onPlanWith} /> : (
+        {cur ? <FabricDetail key={cur.id} f={cur} onPlanWith={onPlanWith} openRun={openRun} /> : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <T s="sub">Fabric you add shows here.</T>
           </View>
@@ -100,10 +100,10 @@ export function FabricScreen({ onPlanWith }: { onPlanWith: (fabricId: string) =>
   );
 }
 
-function FabricDetail({ f, onPlanWith }: { f: Fabric; onPlanWith: (id: string) => void }) {
+function FabricDetail({ f, onPlanWith, openRun }: { f: Fabric; onPlanWith: (id: string) => void; openRun: (id: string) => void }) {
   const shop = useShop();
   const t = useTheme();
-  const uses = shop.plans.filter(p => p.body === f.id || p.ties === f.id || p.fabUse.some(u => u.f === f.id));
+  const uses = shop.runs.filter(p => p.fabUse.some(u => u.f === f.id) || (!p.cut && p.status !== 'done' && (p.body === f.id || p.ties === f.id)));
   const scale = Math.max(5, f.yards, f.low * 2.5);
   const set = (patch: Partial<Fabric>) => editFabric(f.id, patch);
   const remove = () => {
@@ -119,7 +119,7 @@ function FabricDetail({ f, onPlanWith }: { f: Fabric; onPlanWith: (id: string) =
           <T s="small">Fabric</T>
           <T s="h1" style={{ fontSize: 28 }}>{f.name}</T>
         </View>
-        <Button kind="secondary" small title="Plan a cut" onPress={() => onPlanWith(f.id)} />
+        <Button kind="secondary" small title="Plan a run" onPress={() => onPlanWith(f.id)} />
       </View>
 
       <Card style={{ gap: 14 }}>
@@ -169,18 +169,18 @@ function FabricDetail({ f, onPlanWith }: { f: Fabric; onPlanWith: (id: string) =
         </Card>
       </Section>
 
-      <Section title="Cut plans">
+      <Section title="Runs">
         <Card pad={false} style={{ overflow: 'hidden' }}>
           {uses.length ? uses.map((p, i) => (
-            <Row key={p.id} first={i === 0}>
+            <Row key={p.id} first={i === 0} onPress={() => openRun(p.id)}>
               <View style={{ flex: 1 }}>
-                <T style={{ fontWeight: '600' }}>{p.name || 'Untitled plan'}</T>
-                <T s="sub">{plural(planCount(p), 'bandana')} · {p.status === 'cut' ? 'cut' : 'planning'}</T>
+                <T style={{ fontWeight: '600' }}>{(p.name || 'Untitled run').split(' — ')[0]}</T>
+                <T s="sub">{plural(planCount(p), 'bandana')} · {p.status === 'done' ? 'finished' : p.cut ? 'cut' : p.status === 'active' ? 'in progress, not cut' : 'draft'}</T>
               </View>
-              {p.status === 'cut' ? <T s="sub">−{yd(p.fabUse.filter(u => u.f === f.id).reduce((a, u) => a + u.used, 0))}</T> : null}
+              {p.cut ? <T s="sub">−{yd(p.fabUse.filter(u => u.f === f.id).reduce((a, u) => a + u.used, 0))}</T> : null}
             </Row>
           )) : (
-            <Row first><T s="sub">Not in any cut plan yet.</T></Row>
+            <Row first><T s="sub">Not in any run yet.</T></Row>
           )}
         </Card>
       </Section>

@@ -1,11 +1,11 @@
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 import { inch } from '../lib/format';
 import { MATS } from '../lib/plan';
 import { onDevice } from '../state/storage';
-import { update, useShop } from '../state/store';
+import { change as update, useShop } from '../state/store';
 import type { CutSettings, Size, Strap } from '../state/types';
-import { Card, Field, NumField, Row, Section, Segmented, T } from '../ui/kit';
+import { Card, Field, NumField, Row, Section, Segmented, Select, T } from '../ui/kit';
 import { useTheme } from '../ui/theme';
 
 export function SetupScreen() {
@@ -18,32 +18,33 @@ export function SetupScreen() {
   const vm = MATS.find(m => m.id === c.mat) || MATS[1];
   const across = Math.max(1, Math.floor(c.bolt / c.width + 1e-9));
   return (
-    <ScrollView contentContainerStyle={{ padding: 32, gap: 26, maxWidth: 980 }}>
-      <View style={{ gap: 4 }}>
-        <T s="title">Sizes & mats</T>
-        <T s="sub">The measurements every cut plan uses. Changes apply to plans you haven’t cut yet.</T>
-      </View>
+    <View style={{ gap: 26 }}>
+      <T s="sub">The measurements, prices and times every run uses. Changes apply to runs you haven’t cut yet.</T>
 
       <Section title="Bandana sizes" right={<T s="small">Inches · 10 1/2 or 10.5 both work</T>}>
         <Card pad={false} style={{ overflow: 'hidden' }}>
           <Row first style={{ minHeight: 36, paddingVertical: 6 }}>
-            <T s="label" style={{ width: 170 }}>Name</T>
-            <T s="label" style={{ width: 130 }}>Wide edge</T>
-            <T s="label" style={{ width: 130 }}>Tip length</T>
+            <T s="label" style={{ width: 120 }}>Name</T>
+            <T s="label" style={{ width: 100 }}>Wide edge</T>
+            <T s="label" style={{ width: 100 }}>Tip length</T>
+            <T s="label" style={{ width: 92 }}>Price</T>
+            <T s="label" style={{ width: 96 }}>Time each</T>
             <T s="label" style={{ flex: 1 }}>Strap</T>
           </Row>
           {Object.entries(shop.sizes).map(([k, z]) => (
             <Row key={k}>
-              <View style={{ width: 170 }}><Field bare label={`${k} name`} value={z.name} onChange={v => setSize(k, { name: v })} width={150} /></View>
-              <View style={{ width: 130 }}><NumField bare label={`${z.name} wide edge`} value={z.cw} onChange={n => setSize(k, { cw: n })} suffix="in" width={110} placeholder="–" /></View>
-              <View style={{ width: 130 }}><NumField bare label={`${z.name} tip length`} value={z.cl} onChange={n => setSize(k, { cl: n })} suffix="in" width={110} placeholder="–" /></View>
+              <View style={{ width: 120 }}><Field bare label={`${k} name`} value={z.name} onChange={v => setSize(k, { name: v })} width={108} /></View>
+              <View style={{ width: 100 }}><NumField bare label={`${z.name} wide edge`} value={z.cw} onChange={n => setSize(k, { cw: n })} suffix="in" width={88} placeholder="–" /></View>
+              <View style={{ width: 100 }}><NumField bare label={`${z.name} tip length`} value={z.cl} onChange={n => setSize(k, { cl: n })} suffix="in" width={88} placeholder="–" /></View>
+              <View style={{ width: 92 }}><NumField bare label={`${z.name} price`} value={z.price} onChange={n => setSize(k, { price: n })} prefix="$" width={80} placeholder="–" /></View>
+              <View style={{ width: 96 }}><NumField bare label={`${z.name} minutes each`} value={z.mins} onChange={n => setSize(k, { mins: n })} suffix="min" width={84} placeholder="–" /></View>
               <View style={{ flex: 1 }}>
-                <Segmented bare label={`${z.name} strap`} value={z.strap} options={shop.straps.map(s => [s.id, s.name] as [string, string])} onChange={v => setSize(k, { strap: v })} />
+                <Select label={`${z.name} strap`} value={z.strap} options={shop.straps.map(s => [s.id, s.name, `${inch(s.w)} × ${inch(s.l)}`] as [string, string, string])} onChange={v => setSize(k, { strap: v })} width={128} />
               </View>
             </Row>
           ))}
         </Card>
-        <T s="small">The wide edge is the neck side of the triangle; the tip length runs from that edge to the point. Include seam allowance.</T>
+        <T s="small">The wide edge is the neck side of the triangle; the tip length runs from that edge to the point. Include seam allowance. Time each is start to finish for one bandana; bigger sizes then get more time in a run’s steps.</T>
       </Section>
 
       <Section title="Straps">
@@ -53,6 +54,8 @@ export function SetupScreen() {
               <View style={{ flex: 1 }}><Field label="Name" value={s.name} onChange={v => setStrap(s.id, { name: v })} /></View>
               <NumField label="Cut width" value={s.w} onChange={n => setStrap(s.id, { w: n ?? 0 })} suffix="in" width={110} />
               <NumField label="Cut length" value={s.l} onChange={n => setStrap(s.id, { l: n ?? 0 })} suffix="in" width={110} />
+              <NumField label="Extra time" value={s.mins ?? 0} onChange={n => setStrap(s.id, { mins: n ?? 0 })} suffix="min" width={110} />
+              <NumField label="Notions" value={s.mat ?? 0} onChange={n => setStrap(s.id, { mat: n ?? 0 })} prefix="$" width={100} />
             </Row>
           ))}
         </Card>
@@ -80,6 +83,6 @@ export function SetupScreen() {
       </Section>
 
       <T s="small" color={t.text3}>{onDevice ? 'Everything saves on this computer as you go, in your AppData › Local › BandanaPlanner folder.' : 'Preview: saves in this browser only.'}</T>
-    </ScrollView>
+    </View>
   );
 }

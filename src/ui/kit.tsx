@@ -309,3 +309,33 @@ export function Sheet({ title, sub, onClose, children, footer, width = 520 }: { 
     </View>
   );
 }
+
+/** A compact choice: shows the current value; clicking opens the options in a small sheet. */
+export function Select<V extends string>({ value, options, onChange, label, width = 180 }: { value: V; options: [V, string, string?][]; onChange: (v: V) => void; label: string; width?: number }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const cur = options.find(o => o[0] === value) || options[0];
+  return (
+    <>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${cur ? cur[1] : ''}`} onPress={() => setOpen(true)}
+        style={[inputStyle(t), { width, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: t.line2, paddingHorizontal: 10, minHeight: 38 }]}>
+        <Text numberOfLines={1} style={{ color: t.text, fontSize: F.f15, flexShrink: 1 }}>{cur ? cur[1] : ''}</Text>
+        <Text style={{ color: t.text3, fontSize: 12, marginLeft: 6 }}>▾</Text>
+      </Pressable>
+      {open ? (
+        <Sheet title={label} onClose={() => setOpen(false)} width={420}>
+          <View style={{ backgroundColor: t.bg, borderRadius: R.card, overflow: 'hidden' }}>
+            {options.map(([v, l, sub], i) => (
+              <Row key={v} first={i === 0} selected={v === value} onPress={() => { onChange(v); setOpen(false); }}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <T style={{ fontWeight: v === value ? '700' : '500' }}>{l}</T>
+                  {sub ? <T s="sub">{sub}</T> : null}
+                </View>
+              </Row>
+            ))}
+          </View>
+        </Sheet>
+      ) : null}
+    </>
+  );
+}

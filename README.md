@@ -2,11 +2,12 @@
 
 The Windows app for fabric inventory and cut plans, built with React Native for Windows. Everything is saved on this computer; there's no account, database or syncing yet.
 
-What's in this first version:
+What's in it so far:
 
-- **Fabric**: every bolt with yards on the shelf, cost per yard, a low-stock warning, print direction (with which way the top faces), where you buy it, and notes.
-- **Cut plans**: pick how many of each size and the fabric for the bandanas and straps. The app lays every piece out on Cricut Venture mats (the same planner as the prototype, so the layouts are identical), shows the yards needed against what's on the shelf, and saves one SVG per mat for Design Space. **Mark as cut** takes the fabric off the shelf; **Undo cut** puts it back, and you can correct what you really used.
-- **Sizes & mats**: the triangle measurements for XS–XXL, strap cut sizes, the mat, bolt width, strip width, blade gap and extra-fabric allowance.
+- **Runs**: plan a batch (sizes, fabric, due date, workflow template). The app lays every piece out on Cricut Venture mats (the same planner as the prototype, so layouts are identical), shows the yards needed against the shelf, works out materials, time and profit, and saves one SVG per mat for Design Space. **Record the cut** takes what you really used off the shelf (Undo puts it back). Work through the steps with tick boxes and a timer (it keeps running if you close the app, and asks if it's still going after a while), enter times by hand, log defects, then **Finish run** to move the bandanas into stock and see the review: each step against its plan, hours, fabric and profit.
+- **Fabric**: every bolt with yards on the shelf, cost per yard, a low-stock warning, print direction, where you buy it, and notes.
+- **Finished stock**: bandanas ready to sell, by size and by run, with counts you can fix by hand.
+- **Settings**: sizes (cut measurements, price, time each), straps, mat and bolt; workflow templates (steps and minutes per bandana, with your real timed pace next to each); free hours per day; timer check-in.
 
 The window opens at 1280 × 820 (maximised on smaller screens) and can't be made smaller than 1024 × 700.
 
@@ -15,7 +16,13 @@ The window opens at 1280 × 820 (maximised on smaller screens) and can't be made
 - Your shop: `%LOCALAPPDATA%\BandanaPlanner\shop.json`, saved a moment after every change. The previous version is kept next to it as `shop.json.bak`.
 - Cut files: `Documents\Bandana Planner\<plan name>\`, one SVG per mat, sized in inches.
 
-## One-time setup on Windows
+## Getting the installer
+
+Every push to `main` builds the app on GitHub's Windows machines (`.github/workflows/windows.yml`): it runs the tests, compiles a release build, checks it starts, and makes **BandanaPlannerSetup.exe** with Inno Setup (`installer/BandanaPlanner.iss`). Download it from the run's **Artifacts** on the repo's Actions tab. Pushing a tag like `v0.2.0` also attaches it to a GitHub Release.
+
+The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC": click **More info → Run anyway**. Installing a new version over an old one keeps your shop; uninstalling never deletes it.
+
+## Building on your own PC (optional)
 
 1. Install the React Native for Windows requirements (Visual Studio 2022 with the C++ desktop and Windows App SDK workloads, Node.js, and Developer Mode). Microsoft's guide lists them and has a script that installs them: <https://microsoft.github.io/react-native-windows/docs/rnw-dependencies>
 2. Open a terminal in this folder and run:
@@ -59,9 +66,9 @@ npm test
 ## Project layout
 
 - `App.tsx`: window layout and the sidebar
-- `src/screens/`: Fabric, Cut plans, Sizes & mats
-- `src/engine/engine.js`: the cut planner, generated from the prototype (don't edit by hand)
-- `src/lib/plan.ts`: how the app calls the planner
+- `src/screens/`: Runs (`runs/`), Fabric, Finished stock, Settings
+- `src/engine/engine.js`: the cut planner and the time, money and template maths, generated from the prototype (don't edit by hand)
+- `src/lib/plan.ts`: how the app calls the engine (dates become the prototype's days-from-today here)
 - `src/state/`: the shop's shape, saving and changes
 - `src/ui/`: theme (light and dark follow Windows), shared components, icons, the mat drawing
 - `windows/BandanaPlanner/BandanaFiles.h`: the native module that reads and writes the shop file and saves cut files

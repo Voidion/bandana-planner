@@ -3,16 +3,32 @@
 /* Cut-plan engine, extracted unchanged from the Bandana Planner prototype (bandana-planner.html).
    Regenerate with `npm run engine -- <path to bandana-planner.html>` rather than editing by hand.
    The engine reads the shop from S, set with setEngineState() before planning. */
-let S=null,RC={};
+let S=null,RC={},uid=1;
+export function setUid(n){uid=n}
 export function setEngineState(state){if(state!==S){S=state;RC={};if(typeof NEST_CACHE!=='undefined')NEST_CACHE.clear()}}
 const fab=id=>(S&&S.fabrics||[]).find(f=>f.id===id)||null;
 const run=id=>(S&&S.runs||[]).find(r=>r.id===id)||null;
+/* The prototype counts days relative to today (0 = today, -2 = two days ago); the app passes real dates in that form. */
+let TODAY=(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate())})();
+export function setToday(d){TODAY=new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+const dateOf=d=>new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+(+d||0));
+const LED=()=>(S&&S.ledger)||[];
+const DAY=864e5;
 const MET=()=>false;
 const cm1=v=>String(Math.round(v*2.54*10)/10);
 const L=v=>MET()?cm1(+v||0)+' cm':String(Math.round((+v||0)*100)/100)+'"';
 const pieces=r=>Object.values(r.qty).reduce((a,b)=>a+b,0);
+const atList=r=>Object.entries(r.qty).reduce((a,[k,n])=>a+n*(IT(k).price||0),0)+prodValue(r.prod);
 const mats=r=>r.fabUse&&r.fabUse.length?fabCostOf(r)+strapCostOf(r)+prodNotions(r.prod)+Object.entries(r.qty||{}).reduce((a,[k,n])=>a+n*(S.sizes[k]?sizeNotions(k)+supEach('bandana')+mailerEach():0),0)+prodCount(r.prod)*(supEach('item')+mailerEach()):Object.entries(r.qty).reduce((a,[k,n])=>a+n*(unitMat(k)||0),0)+prodMat(r.prod);
+const runMins=r=>r.steps.reduce((a,s)=>a+(s.done&&s.actual?s.actual:s.est),0);
+const doneN=r=>r.steps.filter(s=>s.done).length;
+const rate=r=>{const h=runMins(r)*laborF()/60;if(!h)return 0;const fees=Object.entries(r.qty).reduce((a,[k,n])=>a+n*feeEach(IT(k).price||0),0)+prodFees(r.prod);return (atList(r)-mats(r)-overheadEach()*(pieces(r)+prodCount(r.prod))-fees)/h};
 const isLow=f=>f.low>0&&f.yards<=f.low;
+const finished=()=>S.runs.filter(r=>r.status==='done');
+const PAY=()=>!!(S.cfg&&S.cfg.payLabor);
+const runProfit=r=>{if(r.review&&r.review.profit!=null)return r.review.profit;const fees=Object.entries(r.qty).reduce((a,[k,n])=>a+n*feeEach(IT(k).price||0),0)+prodFees(r.prod);return atList(r)-mats(r)-overheadEach()*(pieces(r)+prodCount(r.prod))-fees};
+function avgEach(){const f=finished();const p=f.reduce((a,r)=>a+pieces(r)+prodCount(r.prod),0);return p?f.reduce((a,r)=>a+runProfit(r),0)/p:0}
+function effRate(){const f=finished().filter(r=>r.review||r.steps.length);if(!f.length)return 0;return f.reduce((a,r)=>a+(r.review?r.review.rate:rate(r)),0)/f.length}
 const strapStyle=k=>S.straps.find(x=>x.id===(S.sizes[k]||{}).strap)||S.straps[0]||{id:'none',name:'No strap',w:2,l:16,mins:0,mat:0};
 const strapOwn=k=>{const o=(S.sizes[k]||{}).strapCut;return o&&(o.file||+o.w||+o.l)?o:null};
 const strapOf=k=>{const st=strapStyle(k),o=strapOwn(k);if(!o||st.id==='none')return st;return{...st,w:+o.w||+st.w,l:+o.l||+st.l,file:o.file||null,key:st.id+'@'+k,own:true}};
@@ -24,7 +40,26 @@ function sizeYd(k){return memo('szyd:'+k,()=>{const z=S.sizes[k];if(!z||!z.cw||!
 const sizeFab=(k,cost)=>{const y=sizeYd(k);return y?(y.body+y.strap)*(cost??avgFabCost()):0};
 const sizeNotions=k=>{const z=S.sizes[k];return z&&z.notions!=null?+z.notions:.2};
 const unitMat=k=>{const z=S.sizes[k];if(!z){const v=pv(k);return v?vMat(v):null}return (!z.cw||!z.cl)?null:sizeFab(k)+sizeNotions(k)+(+strapOf(k).mat||0)+supEach('bandana')+mailerEach()};
+const unitMins=k=>{const z=S.sizes[k];if(!z){const v=pv(k);return v?vMins(v):null}return z.mins==null?null:z.mins+(+strapOf(k).mins||0)};
+const NOITEM={name:'Removed item',price:0};
+function IT(k){if(S.sizes[k])return S.sizes[k];const v=pv(k);if(!v)return NOITEM;const p=pvp(v);return{name:v.name,price:+v.price||0,mins:vMins(v),mat:vMat(v),isVar:true,pid:v.pid,product:p?p.name:''}}
+function monthlyBills(){return S.bills.reduce((a,b)=>a+(b.basis==='year'?(+b.amt||0)/12:(+b.amt||0)),0)}
+const overheadEach=()=>S.cfg.piecesPerMonth>0?monthlyBills()/S.cfg.piecesPerMonth:0;
+const feeEach=p=>S.cfg.fees.on?p*S.cfg.fees.rate/100+S.cfg.fees.flat/Math.max(1,S.cfg.fees.perOrder):0;
+const laborF=()=>1+(+S.cfg.untracked||0)/100;
+function unitCost(k,price){const p=price??IT(k).price??0;return (unitMat(k)||0)+overheadEach()+feeEach(p)}
+function priceFor(k,margin){const f=S.cfg.fees;const fixed=(unitMat(k)||0)+overheadEach()+(f.on?f.flat/Math.max(1,f.perOrder):0)+(PAY()?S.laborRate*(unitMins(k)||0)*laborF()/60:0);const den=1-(f.on?f.rate/100:0)-margin/100;const raw=den>.05?fixed/den:fixed*20;const st=S.cfg.round||.01;return Math.round(Math.ceil(raw/st-1e-9)*st*100)/100}
+function marginOf(k){const z=S.sizes[k];if(!z.price)return null;const wage=PAY()?S.laborRate*unitMins(k)*laborF()/60:0;return (z.price-unitCost(k)-wage)/z.price}
+const defTpl=()=>S.templates.find(t=>t.id===S.cfg.defTpl)||S.templates[0];
+const tplOf=id=>S.templates.find(t=>t.id===id)||defTpl();
+const tplTotal=t=>t.steps.reduce((a,s)=>a+(+s.r||0),0);
+function pcsEq(qty){const base=unitMins('M')||38;return Object.entries(qty).reduce((a,[k,n])=>a+(n||0)*((unitMins(k)??base)/base),0)}
+function tplMins(id,qty){const eq=pcsEq(qty);return tplOf(id).steps.reduce((a,s)=>a+Math.max(1,Math.round(s.r*eq)),0)}
+function stepsFor(id,qty){const eq=pcsEq(qty);return tplOf(id).steps.map(s=>({id:'st'+(uid++),name:s.n,est:Math.max(1,Math.round(s.r*eq)),source:'template',done:false}))}
 const memo=(k,f)=>{if(!RC)return f();if(!(k in RC))RC[k]=f();return RC[k]};
+const leftMins=r=>r.steps.filter(x=>!x.done).reduce((a,x)=>a+x.est,0);
+const tEl=t=>t?(t.acc||0)+(t.paused?0:Date.now()-t.start):0;
+const isStale=t=>!!t&&tEl(t)/6e4>S.cfg.staleMins;
 const VENTURE_MATS=[{id:'v1224',name:'24 × 12" mat',mw:24,ml:12,w:23.5,l:11.5,sub:'Loads sideways'},{id:'v2428',name:'24 × 28" mat',mw:24,ml:28,w:23.5,l:27.5,sub:'Full size'}];
 const ventMat=()=>VENTURE_MATS.find(m=>m.id===S.cfg.cut.mat)||VENTURE_MATS[1];
 function maxRects(W,H,items,gap,free0){
@@ -309,6 +344,21 @@ function pieceShapes(p){if(p.polys)return p.polys.map(pts=>({s:p.sub,pts}));cons
 const xmlEsc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function exportSvg(cp,r,only){const gap=1,f=n=>Math.round(n*1000)/1000,list=only!=null?[[cp.mats[only],only]]:cp.mats.map((m,i)=>[m,i]),tw=Math.max(1,list.length*(cp.W+gap)-gap);
  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${f(tw)}in" height="${f(cp.L)}in" viewBox="0 0 ${f(tw)} ${f(cp.L)}">\n<title>${xmlEsc(rnT(r))} cut layout, ${only!=null?'mat '+(only+1)+' of '+cp.mats.length:cp.mats.length+' mats'}, ${f(cp.W)} x ${f(cp.L)} in each</title>\n`+list.map(([m,i],n)=>{let j=0;return `<g id="mat-${i+1}-${m.fab==='strap'?'straps':m.fab==='bow'?'bows':'bodies'}" transform="translate(${f(n*(cp.W+gap))} 0)">\n`+m.pieces.flatMap(p=>pieceShapes(p).map(sh=>`  <path id="mat${i+1}-${p.k}-${sh.s}${p.off?'-from-scraps':''}-${++j}" d="M${sh.pts.map(([x,y])=>f(x)+' '+f(y)).join('L')}Z" fill="none" stroke="#000000" stroke-width="0.01"/>`)).join('\n')+'\n</g>'}).join('\n')+'\n</svg>\n'}
+function med(a){if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
+function paceStats(){
+ const ss=S.sessions.filter(s=>s.pcs>0&&s.mins>0);const per=s=>s.mins/s.pcs;
+ const stepMed={};[...new Set(ss.map(s=>s.step))].forEach(k=>stepMed[k]=med(ss.filter(s=>s.step===k).map(per)));
+ const tpl=defTpl();
+ const whoMed=(who,k)=>med(ss.filter(s=>s.who===who&&s.step===k).map(per));
+ const perB=who=>tpl.steps.reduce((a,st)=>a+((who?whoMed(who,st.n):null)??stepMed[st.n]??st.r),0);
+ const quick=who=>{let best=null;Object.keys(stepMed).forEach(k=>{const v=whoMed(who,k);if(v==null)return;const r=v/stepMed[k];if(!best||r<best.r)best={k,r}});return best};
+ const ratio=s=>per(s)/stepMed[s.step];
+ const byHour={};ss.forEach(s=>{(byHour[s.hour]=byHour[s.hour]||[]).push(ratio(s))});
+ let fast=null;Object.entries(byHour).forEach(([h,v])=>{if(v.length<3)return;const m=v.reduce((a,b)=>a+b,0)/v.length;if(!fast||m<fast.m)fast={h:+h,m,n:v.length}});
+ const byDay=[[],[],[],[],[],[],[]];ss.forEach(s=>byDay[new Date(TODAY.getTime()+s.day*DAY).getDay()].push(ratio(s)));
+ const days=byDay.map(v=>v.length>=2?v.reduce((a,b)=>a+b,0)/v.length:null);
+ return{n:ss.length,stepMed,tpl,perShop:perB(null),you:perB('You'),sam:perB('Sam'),qYou:quick('You'),qSam:quick('Sam'),fast,days};
+}
 function fabRecords(){return memo('fabRecs',()=>{const R=[];S.runs.forEach(r=>{if(r.fabUse&&r.fabUse.length)r.fabUse.forEach(u=>{if(u.plan>0&&u.used>0)R.push({run:r.id,f:u.f,name:u.name,plan:u.plan,used:u.used,pcs:pieces(r)})});else if(r.review&&r.review.fabPlan>0&&r.review.fab>0)R.push({run:r.id,f:null,name:null,plan:r.review.fabPlan,used:r.review.fab,pcs:pieces(r)})});return R})}
 const median=a=>{if(!a.length)return null;const b=a.slice().sort((x,y)=>x-y),m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2};
 function fabFactor(fid){const R=fabRecords();if(S.cfg.learnFab===false)return{k:1,n:0,src:'off'};const own=fid?R.filter(x=>x.f===fid):[];if(own.length>=2)return{k:Math.max(.85,Math.min(1.5,median(own.map(x=>x.used/x.plan)))),n:own.length,src:'fabric'};if(R.length>=2)return{k:Math.max(.85,Math.min(1.5,median(R.map(x=>x.used/x.plan)))),n:R.length,src:'all'};return{k:1,n:R.length,src:'none'}}
@@ -322,13 +372,21 @@ const vFabYd=v=>memo('vfyd:'+v.id+':'+v.w+'x'+v.l+':'+(v.pieces||1)+':'+(v.part|
 const vFab=v=>vFabYd(v)*avgFabCost();
 const vPart=v=>{const p=pvp(v);return p&&v.part?(p.parts||[]).find(x=>x.id===v.part)||null:null};
 const partArea=x=>(x.file&&x.file.area?x.file.area:(+x.w||0)*(+x.l||0))*Math.max(1,x.pieces||1);
+const vMins=v=>(+v.mins||0)+(vPart(v)?(+vPart(v).mins||0):0);
 const vNotions=v=>(+v.notions||0)+(vPart(v)?(+vPart(v).notions||0):0);
 const vMat=v=>vFab(v)+vNotions(v)+supEach('item')+mailerEach();
 const prodSum=(map,fn)=>Object.entries(map||{}).reduce((a,[id,n])=>{const v=pv(id);return a+(v&&n?n*fn(v):0)},0);
+const prodValue=map=>prodSum(map,v=>+v.price||0);
 const prodMat=map=>prodSum(map,vMat);
 const prodNotions=map=>prodSum(map,vNotions);
+const prodFees=map=>prodSum(map,v=>feeEach(+v.price||0));
 const prodCount=(map,pid)=>Object.entries(map||{}).reduce((a,[id,n])=>{const v=pv(id);return a+(v&&(!pid||v.pid===pid)?(n||0):0)},0);
+const prodPieces=map=>prodSum(map,v=>Math.max(1,v.pieces||1)+(vPart(v)?Math.max(1,vPart(v).pieces||1):0));
+function runSteps(tpl,qty,prod){const n0=Object.values(qty).reduce((x,y)=>x+y,0),pc=prodCount(prod);const st=n0?stepsFor(tpl,qty):stepsFor(tpl,qty).filter(x=>/cut day|photo/i.test(x.name)).map(x=>({...x,est:Math.max(1,Math.round(/cut/i.test(x.name)?prodPieces(prod)*.6:pc*.5))})),ps=prodStepsFor(prod);if(ps.length){const i=st.findIndex(x=>/topstitch/i.test(x.name));st.splice(i>=0?i+1:Math.max(0,st.length-1),0,...ps)}return st}
+function prodStepsFor(map){const out=[];(S.products||[]).forEach(p=>{const tot=Object.entries(map||{}).reduce((a,[id,n])=>{const v=pv(id);return a+(v&&v.pid===p.id&&n?n*vMins(v):0)},0);if(!tot)return;const sumR=(p.steps||[]).reduce((a,x)=>a+(+x.r||0),0)||1;
+ (p.steps&&p.steps.length?p.steps:[{n:'Make',r:1}]).forEach(x=>out.push({id:'st'+(uid++),name:`${p.name}: ${x.n}`,est:Math.max(1,Math.round(tot*(+x.r||0)/sumR)),source:'product',prod:p.id,done:false}))});return out}
 const strapCostOf=r=>Object.entries(r.qty||{}).reduce((a,[k,n])=>a+n*(+strapOf(k).mat||0),0);
 function avgFabCost(){const fs=S.fabrics.filter(f=>!f.offcut&&f.cost>0);return fs.length?fs.reduce((a,f)=>a+f.cost,0)/fs.length:8.5}
+const isSewStep=n=>/sew|stitch|hem|serg|bind/i.test(n||'');
 const rnT=r=>{const n=String(r.name||''),i=n.indexOf(' — ');return i<0?n:n.slice(0,i)},rnP=r=>{const n=String(r.name||''),i=n.indexOf(' — '),t=i<0?'':n.slice(i+3);return t.charAt(0).toUpperCase()+t.slice(1)};
-export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor};
+export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,pieces,doneN,runMins,leftMins,atList,mats,rate,runProfit,avgEach,effRate,unitMins,unitMat,unitCost,pcsEq,tplMins,stepsFor,runSteps,tplOf,defTpl,tplTotal,paceStats,fabCostOf,overheadEach,feeEach,laborF,priceFor,marginOf,IT,tEl,isStale,isSewStep};
