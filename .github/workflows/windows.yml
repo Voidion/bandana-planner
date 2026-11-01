@@ -1,0 +1,88 @@
+name: Windows app
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Check (tests and types)
+        run: |
+          npm test -- --ci
+          npm run typecheck
+
+      - name: Visual Studio in use
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property displayName
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationVersion
+
+      - name: Build the release app
+        run: npx @react-native-community/cli run-windows --release --arch x64 --no-launch --no-deploy --logging
+
+      - name: Find the built app
+        id: app
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path windows -Recurse -Filter BandanaPlanner.exe |
+            Where-Object { $_.FullName -match '\\Release\\' -and $_.FullName -notmatch '\\obj\\|AppX|\\intermediate\\' } |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $exe) { throw "BandanaPlanner.exe was not produced" }
+          $dir = $exe.DirectoryName
+          Write-Host "App folder: $dir"
+          Get-ChildItem $dir | Format-Table Name, Length
+          if (-not (Get-ChildItem -Path $dir -Recurse -Filter *.bundle)) { Write-Warning "No JS bundle found next to the exe" }
+          $ver = (Get-Content package.json | ConvertFrom-Json).version
+          "dir=$dir" >> $env:GITHUB_OUTPUT
+          "version=$ver" >> $env:GITHUB_OUTPUT
+
+      - name: Smoke test (the app starts and stays open)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "${{ steps.app.outputs.dir }}\BandanaPlanner.exe" -PassThru
+          Start-Sleep -Seconds 20
+          if ($p.HasExited) { throw "Bandana Planner closed by itself (exit code $($p.ExitCode))" }
+          Write-Host "Still running after 20 s"
+          Stop-Process -Id $p.Id -Force
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+
+      - name: Make the installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.app.outputs.version }}" "/DSourceDir=${{ steps.app.outputs.dir }}" installer\BandanaPlanner.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BandanaPlannerSetup-${{ steps.app.outputs.version }}
+          path: installer/Output/BandanaPlannerSetup.exe
+          if-no-files-found: error
+
+      - name: Publish a release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/Output/BandanaPlannerSetup.exe
