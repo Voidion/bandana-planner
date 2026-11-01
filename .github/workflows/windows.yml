@@ -36,8 +36,18 @@ jobs:
           & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property displayName
           & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationVersion
 
+      - name: Pick the newest installed Windows SDK
+        id: sdk
+        shell: pwsh
+        run: |
+          $v = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" -Directory |
+            Where-Object { $_.Name -match '^10\.0\.\d+\.0$' -and (Test-Path "$($_.FullName)\um\windows.h") } |
+            Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+          Write-Host "Windows SDK: $($v.Name)"
+          "ver=$($v.Name)" >> $env:GITHUB_OUTPUT
+
       - name: Build the release app
-        run: npx @react-native-community/cli run-windows --release --arch x64 --no-launch --no-deploy --logging --msbuildprops PlatformToolset=v145
+        run: npx @react-native-community/cli run-windows --release --arch x64 --no-launch --no-deploy --logging --msbuildprops "PlatformToolset=v145,WindowsTargetPlatformVersion=${{ steps.sdk.outputs.ver }}"
 
       - name: Find the built app
         id: app
