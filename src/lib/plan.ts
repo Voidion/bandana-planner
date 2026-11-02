@@ -226,3 +226,22 @@ export function reportRows(shop: Shop, list: any[], key: 'size' | 'ch' | 'fabric
   sync(shop);
   return E.repAgg(list, key === 'fabric' ? 'fname' : key);
 }
+
+/** The run's Shopify listing: title, description and tags (written from the run unless you've edited them) */
+export function listingFor(shop: Shop, r: Run): { title: string; desc: string; tags: string } {
+  sync(shop);
+  return E.listingOf(engineRun(r));
+}
+export function listingStockFor(shop: Shop, r: Run): Record<string, number> {
+  sync(shop);
+  return E.listingStock(engineRun(r));
+}
+export function listingCsv(shop: Shop, r: Run): { name: string; csv: string } {
+  sync(shop);
+  const l = E.listingOf(engineRun(r));
+  return { name: `shopify-product-${E.slug(l.title)}.csv`, csv: E.shopifyProductCSV(engineRun(r)) };
+}
+export function listingPlainText(shop: Shop, r: Run): string {
+  sync(shop);
+  return E.listingText(engineRun(r));
+}

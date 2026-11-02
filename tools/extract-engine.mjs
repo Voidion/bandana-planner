@@ -15,7 +15,7 @@ const RUNS = ['pieces', 'doneN', 'runMins', 'leftMins', 'atList', 'mats', 'rate'
 /* Selling: sale money, fees, quote totals, owed */
 const SELL = ['feeFor', 'matFor', 'eTotal', 'eOwed', 'eNet', 'eProfit', 'eUnits', 'sums', 'perList', 'profitEach', 'qtotals', 'monthlyBills', 'unitCost'];
 /* Planning and numbers */
-const PLAN = ['scheduleWork', 'lateRuns', 'freeMins', 'monthIncome', 'repAgg', 'perMonths'];
+const PLAN = ['scheduleWork', 'lateRuns', 'freeMins', 'monthIncome', 'repAgg', 'perMonths', 'listingOf', 'listingStock', 'listingText', 'shopifyProductCSV', 'slug'];
 const ROOTS = [...CUT, ...RUNS, ...SELL, ...PLAN];
 const EXTERNAL = new Set(['S', 'uid', 'render', 'toast', 'log', 'PHOTOS', 'freshState', 'scrClass', 'W', 'stackOf', 'RC', 'sampleLedger', 'sampleEquip', 'sampleCustomers', 'seedSessions', 'seedUsage', 'newPlan', 'run', 'fab', 'uid', 'TODAY', 'dateOf', 'bench', 'LED', 'esc']);
 
@@ -61,6 +61,7 @@ let TODAY=(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),
 export function setToday(d){TODAY=new Date(d.getFullYear(),d.getMonth(),d.getDate())}
 const dateOf=d=>new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+(+d||0));
 const LED=()=>(S&&S.ledger)||[];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const bench=()=>((S&&S.runs)||[]).filter(r=>r.status!=='done');
 ${body}
 export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,${[...new Set([...RUNS, ...SELL, ...PLAN])].join(',')}};

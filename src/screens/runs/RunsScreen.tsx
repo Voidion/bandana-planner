@@ -23,9 +23,10 @@ import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, S
 import { F, R, useTheme } from '../../ui/theme';
 import { CutLayout, InThisRun, MoneyCard, otherCount, shortName, StepRow, Tile } from './parts';
 import { PhotoStrip } from '../PhotosScreen';
+import { ListingSheet } from './ListingSheet';
 import { CutSheet, DefectSheet, FabricPicker, FinishSheet, StepSheet } from './sheets';
 
-type SheetState = null | { k: 'cut' } | { k: 'step'; id: string } | { k: 'finish' } | { k: 'defect' } | { k: 'pick'; role: 'body' | 'ties' };
+type SheetState = null | { k: 'listing' } | { k: 'cut' } | { k: 'step'; id: string } | { k: 'finish' } | { k: 'defect' } | { k: 'pick'; role: 'body' | 'ties' };
 
 export function RunsScreen({ sel, setSel, goSetup }: { sel: string | null; setSel: (id: string | null) => void; goSetup: () => void }) {
   const shop = useShop();
@@ -95,6 +96,7 @@ function RunView({ r, goSetup, setSel }: { r: Run; goSetup: () => void; setSel: 
     <View style={{ flex: 1 }}>
       {body}
       {sheet?.k === 'cut' ? <CutSheet r={r} onClose={close} /> : null}
+      {sheet?.k === 'listing' ? <ListingSheet r={r} onClose={close} /> : null}
       {sheet?.k === 'step' ? <StepSheet r={r} stepId={sheet.id} onClose={close} onCut={() => setSheet({ k: 'cut' })} /> : null}
       {sheet?.k === 'finish' ? <FinishSheet r={r} onClose={close} onDone={() => {}} /> : null}
       {sheet?.k === 'defect' ? <DefectSheet r={r} onClose={close} /> : null}
@@ -407,6 +409,7 @@ function BenchView({ r, setSheet }: { r: Run; setSheet: (s: SheetState) => void 
       <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
         <Button kind={left ? 'secondary' : 'primary'} title={left ? `Finish run · ${plural(left, 'step')} left` : 'Finish run'} onPress={() => setSheet({ k: 'finish' })} />
         <Button kind="secondary" title="Log a defect" icon={c => <DefectIcon color={c} size={16} />} onPress={() => setSheet({ k: 'defect' })} />
+        <Button kind="secondary" title="Shopify listing" onPress={() => setSheet({ k: 'listing' })} />
       </View>
     </View>
   );
@@ -487,6 +490,7 @@ function ReviewView({ r, setSel, setSheet }: { r: Run; setSel: (id: string | nul
       <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
         <Button title="Plan this again" onPress={() => { const id = planAgain(r.id); if (id) setSel(id); }} />
         <Button kind="secondary" title="Log a defect" icon={c => <DefectIcon color={c} size={16} />} onPress={() => setSheet({ k: 'defect' })} />
+        <Button kind="secondary" title="Shopify listing" onPress={() => setSheet({ k: 'listing' })} />
         <View style={{ flex: 1 }} />
         <Button kind="ghost" small title="Move back to in progress" onPress={() => { reopenRun(r.id); showSnack('Back in progress. Its bandanas came out of stock'); }} />
       </View>

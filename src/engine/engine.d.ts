@@ -74,3 +74,8 @@ export function freeMins(d: number): number;
 export function monthIncome(): number;
 export function repAgg(list: any[], key: string): { k: string; sales: number; profit: number; units: number }[];
 export function perMonths(per: string): number;
+export function listingOf(r: any): { title: string; desc: string; tags: string };
+export function listingStock(r: any): Record<string, number>;
+export function listingText(r: any): string;
+export function shopifyProductCSV(r: any): string;
+export function slug(s: string): string;

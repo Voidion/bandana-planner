@@ -13,12 +13,14 @@ let TODAY=(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),
 export function setToday(d){TODAY=new Date(d.getFullYear(),d.getMonth(),d.getDate())}
 const dateOf=d=>new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+(+d||0));
 const LED=()=>(S&&S.ledger)||[];
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const bench=()=>((S&&S.runs)||[]).filter(r=>r.status!=='done');
 const DAY=864e5;
 const money=n=>(n<0?'−':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const MET=()=>false;
 const cm1=v=>String(Math.round(v*2.54*10)/10);
 const L=v=>MET()?cm1(+v||0)+' cm':String(Math.round((+v||0)*100)/100)+'"';
+const dims=(a,b)=>MET()?cm1(+a||0)+' × '+cm1(+b||0)+' cm':String(Math.round((+a||0)*100)/100)+' × '+String(Math.round((+b||0)*100)/100)+'"';
 const pieces=r=>Object.values(r.qty).reduce((a,b)=>a+b,0);
 const atList=r=>Object.entries(r.qty).reduce((a,[k,n])=>a+n*(IT(k).price||0),0)+prodValue(r.prod);
 const mats=r=>r.fabUse&&r.fabUse.length?fabCostOf(r)+strapCostOf(r)+prodNotions(r.prod)+Object.entries(r.qty||{}).reduce((a,[k,n])=>a+n*(S.sizes[k]?sizeNotions(k)+supEach('bandana')+mailerEach():0),0)+prodCount(r.prod)*(supEach('item')+mailerEach()):Object.entries(r.qty).reduce((a,[k,n])=>a+n*(unitMat(k)||0),0)+prodMat(r.prod);
@@ -375,6 +377,7 @@ function pieceShapes(p){if(p.polys)return p.polys.map(pts=>({s:p.sub,pts}));cons
 const xmlEsc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function exportSvg(cp,r,only){const gap=1,f=n=>Math.round(n*1000)/1000,list=only!=null?[[cp.mats[only],only]]:cp.mats.map((m,i)=>[m,i]),tw=Math.max(1,list.length*(cp.W+gap)-gap);
  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${f(tw)}in" height="${f(cp.L)}in" viewBox="0 0 ${f(tw)} ${f(cp.L)}">\n<title>${xmlEsc(rnT(r))} cut layout, ${only!=null?'mat '+(only+1)+' of '+cp.mats.length:cp.mats.length+' mats'}, ${f(cp.W)} x ${f(cp.L)} in each</title>\n`+list.map(([m,i],n)=>{let j=0;return `<g id="mat-${i+1}-${m.fab==='strap'?'straps':m.fab==='bow'?'bows':'bodies'}" transform="translate(${f(n*(cp.W+gap))} 0)">\n`+m.pieces.flatMap(p=>pieceShapes(p).map(sh=>`  <path id="mat${i+1}-${p.k}-${sh.s}${p.off?'-from-scraps':''}-${++j}" d="M${sh.pts.map(([x,y])=>f(x)+' '+f(y)).join('L')}Z" fill="none" stroke="#000000" stroke-width="0.01"/>`)).join('\n')+'\n</g>'}).join('\n')+'\n</svg>\n'}
+const slug=s=>String(s).toLowerCase().replace(/[’']/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'file';
 function med(a){if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
 function paceStats(){
  const ss=S.sessions.filter(s=>s.pcs>0&&s.mins>0);const per=s=>s.mins/s.pcs;
@@ -419,6 +422,19 @@ function prodStepsFor(map){const out=[];(S.products||[]).forEach(p=>{const tot=O
  (p.steps&&p.steps.length?p.steps:[{n:'Make',r:1}]).forEach(x=>out.push({id:'st'+(uid++),name:`${p.name}: ${x.n}`,est:Math.max(1,Math.round(tot*(+x.r||0)/sumR)),source:'product',prod:p.id,done:false}))});return out}
 const strapCostOf=r=>Object.entries(r.qty||{}).reduce((a,[k,n])=>a+n*(+strapOf(k).mat||0),0);
 function avgFabCost(){const fs=S.fabrics.filter(f=>!f.offcut&&f.cost>0);return fs.length?fs.reduce((a,f)=>a+f.cost,0)/fs.length:8.5}
+function listingDefaults(r){const fb=(r.fabrics||[]).map(x=>fab(x.f)).find(f=>f&&!f.offcut);const fname=fb?fb.name:r.name.split(' —')[0];const base=fname.replace(/\b(print|flannel|fabric)\b/gi,'').replace(/\s+/g,' ').trim();
+ const sizes=Object.entries(S.sizes).filter(([,z])=>z.price!=null&&z.cw);const strap=(strapOf('M').name||'snap').toLowerCase();
+ const desc=`A handmade ${fname.toLowerCase()} bandana for your dog, cut and sewn in small batches.\n\nSizes:\n${sizes.map(([k,z])=>`• ${z.name}: ${dims(z.cw,z.cl)}`).join('\n')}\n\nFastens with a ${strap.replace(/^no strap$/,'tie')}. Machine wash cold and hang to dry.`;
+ return{title:`${base.replace(/\b\w/g,c=>c.toUpperCase())} Dog Bandana`,desc,tags:['dog bandana','handmade',base.toLowerCase()].join(', ')}}
+function listingOf(r){const d=listingDefaults(r);return Object.assign({},d,r.listing||{})}
+function listingStock(r){const by={};S.stock.filter(x=>x.run===r.id).forEach(x=>{by[x.size]=(by[x.size]||0)+x.n});if(!Object.keys(by).length&&r.status!=='done')Object.entries(r.qty||{}).forEach(([k,n])=>{if(n)by[k]=n});return by}
+function listingText(r){const l=listingOf(r);const st=listingStock(r);return `${l.title}\n\n${l.desc}\n\nPrices: ${Object.entries(S.sizes).filter(([,z])=>z.price!=null).map(([k,z])=>`${z.name} ${money(z.price)}`).join(' · ')}${(S.products||[]).filter(p=>p.variants.some(v=>(r.prod||{})[v.id])).map(p=>`\n${p.name}: ${p.variants.filter(v=>v.price).map(v=>`${v.name} ${money(v.price)}`).join(' · ')}`).join('')}\n\nTags: ${l.tags}`}
+function shopifyProductCSV(r){const l=listingOf(r),st=listingStock(r),h=slug(l.title);const html='<p>'+esc(l.desc).replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>')+'</p>';
+ const H=['Handle','Title','Body (HTML)','Vendor','Product Category','Type','Tags','Published','Option1 Name','Option1 Value','Variant SKU','Variant Grams','Variant Inventory Tracker','Variant Inventory Qty','Variant Inventory Policy','Variant Fulfillment Service','Variant Price','Variant Requires Shipping','Variant Taxable','Image Src','Image Position','Status'];
+ const sizes=Object.entries(S.sizes).filter(([,z])=>z.price!=null);
+ const rows=sizes.map(([k,z],i)=>[h,i?'':l.title,i?'':html,i?'':S.cfg.shopName,i?'':'Animals & Pet Supplies > Pet Supplies > Pet Apparel','Dog bandana',i?'':l.tags,i?'':'FALSE','Size',z.name,(h.slice(0,12)+'-'+k).toUpperCase(),'40','shopify',String(st[k]||0),'deny','manual',(+z.price).toFixed(2),'TRUE','TRUE','','',i?'':'draft']);
+ const extra=(S.products||[]).filter(p=>p.variants.some(v=>(r.prod||{})[v.id]||(S.pstock||{})[v.id])).flatMap(p=>{const ph=slug(l.title.replace(/dog bandana/i,'').trim()+' '+p.name);return p.variants.filter(v=>v.price).map((v,i)=>[ph,i?'':`${l.title.replace(/ Dog Bandana$/i,'')} ${p.name}`,i?'':html,i?'':S.cfg.shopName,i?'':'Animals & Pet Supplies > Pet Supplies',p.name,i?'':l.tags,i?'':'FALSE','Style',v.name,(ph.slice(0,12)+'-'+v.id).toUpperCase(),'20','shopify',String((S.pstock||{})[v.id]||(r.prod||{})[v.id]||0),'deny','manual',(+v.price).toFixed(2),'TRUE','TRUE','','',i?'':'draft'])});
+ return toCSV([H,...rows,...extra])}
 const eTotal=e=>+(e.sub+(e.ship||0)+(e.tax||0)-(e.refund||0)).toFixed(2);
 const eOwed=e=>Math.max(0,+(eTotal(e)-(e.paid||0)).toFixed(2));
 const eNet=e=>e.sub-(e.refund||0);
@@ -435,6 +451,8 @@ function repAgg(list,key){const M={};list.forEach(e=>{const parts=key==='size'?O
   parts.forEach(([k,w,q])=>{const f=w/tw,m=M[k]=M[k]||{k,sales:0,profit:0,units:0};m.sales+=eNet(e)*f;m.profit+=eProfit(e)*f;m.units+=q})});return Object.values(M).sort((a,b)=>b.sales-a.sales)}
 function profitEach(){const s=memo('profitEachYr',()=>sums(perList('year')));return s.units?s.profit/s.units:0}
 function monthIncome(){const Y=TODAY.getFullYear(),m=TODAY.getMonth();return LED().filter(e=>{const t=eDate(e);return t.getFullYear()===Y&&t.getMonth()===m&&e.d<=0}).reduce((a,e)=>a+eNet(e),0)}
+const csvCell=v=>{v=v==null?'':String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+const toCSV=rows=>rows.map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n';
 const isSewStep=n=>/sew|stitch|hem|serg|bind/i.test(n||'');
 const rnT=r=>{const n=String(r.name||''),i=n.indexOf(' — ');return i<0?n:n.slice(0,i)},rnP=r=>{const n=String(r.name||''),i=n.indexOf(' — '),t=i<0?'':n.slice(i+3);return t.charAt(0).toUpperCase()+t.slice(1)};
-export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,pieces,doneN,runMins,leftMins,atList,mats,rate,runProfit,avgEach,effRate,unitMins,unitMat,unitCost,pcsEq,tplMins,stepsFor,runSteps,tplOf,defTpl,tplTotal,paceStats,fabCostOf,overheadEach,feeEach,laborF,priceFor,marginOf,IT,tEl,isStale,isSewStep,feeFor,matFor,eTotal,eOwed,eNet,eProfit,eUnits,sums,perList,profitEach,qtotals,monthlyBills,scheduleWork,lateRuns,freeMins,monthIncome,repAgg,perMonths};
+export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,pieces,doneN,runMins,leftMins,atList,mats,rate,runProfit,avgEach,effRate,unitMins,unitMat,unitCost,pcsEq,tplMins,stepsFor,runSteps,tplOf,defTpl,tplTotal,paceStats,fabCostOf,overheadEach,feeEach,laborF,priceFor,marginOf,IT,tEl,isStale,isSewStep,feeFor,matFor,eTotal,eOwed,eNet,eProfit,eUnits,sums,perList,profitEach,qtotals,monthlyBills,scheduleWork,lateRuns,freeMins,monthIncome,repAgg,perMonths,listingOf,listingStock,listingText,shopifyProductCSV,slug};

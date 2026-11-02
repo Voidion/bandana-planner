@@ -33,6 +33,7 @@ export function PricingSettings() {
           <Card pad={false} style={{ overflow: 'hidden' }}>
             <Row first style={{ minHeight: 34, paddingVertical: 6 }}>
               <T s="label" style={{ flex: 1 }}>Size</T>
+              <T s="label" style={{ width: 100 }}>Notions</T>
               <T s="label" style={{ width: 100 }}>Materials</T>
               <T s="label" style={{ width: 100 }}>Suggested</T>
               <T s="label" style={{ width: 130 }}>Your price</T>
@@ -45,6 +46,7 @@ export function PricingSettings() {
               return (
                 <Row key={k}>
                   <T style={{ flex: 1, fontWeight: '600' }}>{z.name}</T>
+                  <View style={{ width: 100 }}><NumField bare label={`${z.name} notions`} value={z.notions ?? 0.2} onChange={n => change(s => ({ ...s, sizes: { ...s.sizes, [k]: { ...s.sizes[k], notions: n ?? 0 } } }))} prefix="$" width={86} /></View>
                   <T style={{ width: 100 }}>{money(unitMaterials(shop, k) || 0)}</T>
                   <T style={{ width: 100, fontWeight: '600' }}>{money(sug)}</T>
                   <View style={{ width: 130 }}><NumField bare label={`${z.name} price`} value={z.price} onChange={n => change(s => ({ ...s, sizes: { ...s.sizes, [k]: { ...s.sizes[k], price: n } } }))} prefix="$" width={110} placeholder="–" /></View>
@@ -55,7 +57,7 @@ export function PricingSettings() {
             })}
           </Card>
         ) : <T s="sub">Add cut sizes in Sizes & mats to see prices.</T>}
-        <T s="small">Materials are fabric (at your average cost a yard), the strap, notions, and supplies used per bandana and per order. Suggested prices cover those, card fees and your monthly bills, then add your profit target. Time isn’t counted as a cost.</T>
+        <T s="small">Notions are thread, tags and other bits for one bandana. Materials are fabric (at your average cost a yard), the strap, notions, and supplies used per bandana and per order. Suggested prices cover those, card fees and your monthly bills, then add your profit target. Time isn’t counted as a cost.</T>
       </Section>
 
       <Section title="Card fees">

@@ -396,6 +396,8 @@ export interface Run {
   finishedAt: Day | null;
   defects: number;
   notes: string;
+  /** Shopify listing text you've edited (otherwise written from the run) */
+  listing?: { title?: string; desc?: string; tags?: string };
   /** Supplies taken when it finished */
   supUse?: { id: string; name: string; unit: string; n: number }[];
 }
