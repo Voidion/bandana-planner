@@ -38,6 +38,7 @@ export function sync(shop: Shop) {
     sessions: shop.sessions.map(s => ({ ...s, day: rel(s.day) ?? 0 })),
     ledger: shop.sales.map(e => ({ ...e, d: rel(e.day) ?? 0, pays: e.pays.map(p => ({ ...p, d: rel(p.day) ?? 0 })), due: e.due ? rel(e.due) : undefined })),
     quotes: [],
+    cfg: { ...shop.cfg, shopName: shop.shopName },
   });
 }
 
@@ -205,4 +206,10 @@ export function unitMinutes(shop: Shop, k: string) {
 export function unitMaterials(shop: Shop, k: string) {
   sync(shop);
   return E.unitMat(k);
+}
+
+/** Quote totals: lines, deal discount, shipping, fees and what you keep (the prototype's qtotals) */
+export function quoteTotals(shop: Shop, q: any) {
+  sync(shop);
+  return E.qtotals(q);
 }

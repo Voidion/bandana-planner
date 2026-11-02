@@ -80,6 +80,39 @@ export function PricingSettings() {
         </Card>
       </Section>
 
+      <Section title="Bundles" right={<T s="small">Deals you can put on a quote</T>}>
+        <Card pad={false} style={{ overflow: 'hidden' }}>
+          {shop.bundles.map((b, i) => (
+            <Row key={b.id} first={i === 0}>
+              <View style={{ flex: 1 }}><Field bare label="Bundle name" value={b.name} onChange={v => change(s => ({ ...s, bundles: s.bundles.map(x => (x.id === b.id ? { ...x, name: v } : x)) }))} /></View>
+              {Object.entries(shop.sizes).filter(([, z]) => z.price != null).map(([k, z]) => (
+                <NumField key={k} bare label={`${b.name} ${z.name}`} value={b.items[k] || 0} onChange={n => change(s => ({ ...s, bundles: s.bundles.map(x => (x.id === b.id ? { ...x, items: { ...x.items, [k]: Math.max(0, Math.round(n || 0)) } } : x)) }))} suffix={z.name.slice(0, 1)} width={64} />
+              ))}
+              <NumField bare label={`${b.name} price`} value={b.price} onChange={n => change(s => ({ ...s, bundles: s.bundles.map(x => (x.id === b.id ? { ...x, price: n ?? 0 } : x)) }))} prefix="$" width={96} />
+              <IconButton label={`Remove ${b.name}`} onPress={() => change(s => ({ ...s, bundles: s.bundles.filter(x => x.id !== b.id) }))}>{cc => <CloseIcon color={cc} size={14} />}</IconButton>
+            </Row>
+          ))}
+          <Row first={!shop.bundles.length} onPress={() => change(s => ({ ...s, bundles: [...s.bundles, { id: newId('bn'), name: 'New bundle', items: {}, price: 0, on: true }] }))}>
+            <PlusIcon color={t.action} size={18} />
+            <T color={t.action} style={{ fontWeight: '600' }}>Add a bundle</T>
+          </Row>
+        </Card>
+      </Section>
+
+      <Section title="On every quote">
+        <Card style={{ gap: 12 }}>
+          <Field label="Shop name" value={shop.shopName} onChange={v => change(s => ({ ...s, shopName: v }))} />
+          <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+            <View style={{ flex: 1, minWidth: 200 }}><Field label="Email" value={c.quote.email} onChange={v => setCfg({ quote: { ...c.quote, email: v } })} /></View>
+            <View style={{ flex: 1, minWidth: 160 }}><Field label="Phone" value={c.quote.phone} onChange={v => setCfg({ quote: { ...c.quote, phone: v } })} /></View>
+            <View style={{ flex: 1, minWidth: 160 }}><Field label="Instagram" value={c.quote.insta} onChange={v => setCfg({ quote: { ...c.quote, insta: v } })} placeholder="@" /></View>
+            <View style={{ flex: 1, minWidth: 200 }}><Field label="Website" value={c.quote.site} onChange={v => setCfg({ quote: { ...c.quote, site: v } })} /></View>
+          </View>
+          <Field label="How to pay the deposit" value={c.quote.pay} onChange={v => setCfg({ quote: { ...c.quote, pay: v } })} placeholder="We’ll email you a Shopify invoice to pay by card." />
+          <Field label="Good to know (one per line)" value={c.quote.notes.join('\n')} onChange={v => setCfg({ quote: { ...c.quote, notes: v.split('\n') } })} multiline />
+        </Card>
+      </Section>
+
       <Section title="Monthly bills" right={<T s="sub">{money(monthly)} a month · {money(E.overheadEach())} a bandana</T>}>
         <Card pad={false} style={{ overflow: 'hidden' }}>
           {shop.bills.map((b, i) => (

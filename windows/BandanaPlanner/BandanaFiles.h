@@ -3,6 +3,7 @@
 //   writeShop(json)                 -> writes shop.json safely: to a temp file first, then swapped in, keeping shop.json.bak
 //   saveCutFile(folder, name, text) -> Documents\Bandana Planner\<folder>\<name>, returns the full path
 //   revealFile(path)                -> opens File Explorer with the file selected
+//   openPath(path)                  -> opens a file in its usual app (a quote PDF in the PDF viewer)
 //   dataFolder()                    -> the folder shop.json lives in
 //   openTextFile(title, kind, pattern) -> shows Windows' Open dialog; returns {"name","path","text"} as JSON, or "" if cancelled
 #pragma once
@@ -227,6 +228,13 @@ struct BandanaFiles {
     } catch (...) {
       promise.Reject(L"Couldn't open that file");
     }
+  }
+
+  REACT_METHOD(OpenPath, L"openPath")
+  void OpenPath(std::string path, winrt::Microsoft::ReactNative::ReactPromise<bool> promise) noexcept {
+    std::wstring p = Widen(path);
+    auto r = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", p.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+    promise.Resolve(r > 32);
   }
 
   REACT_METHOD(GetDataFolder, L"dataFolder")

@@ -11,15 +11,16 @@ import { SettingsScreen, type SettingsTab } from './src/screens/SettingsScreen';
 import { StockScreen } from './src/screens/StockScreen';
 import { RestockScreen, SuppliersScreen, SuppliesScreen } from './src/screens/ShelfScreens';
 import { CustomersScreen, OrdersScreen, SalesScreen } from './src/screens/SellingScreens';
+import { QuotesScreen } from './src/screens/QuotesScreen';
 import { freeStock, isLate, orderStage, saleOwed } from './src/state/selling';
 import { restockList } from './src/state/shelf';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
-import { BatchesIcon, BoxIcon, CartIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
+import { BatchesIcon, BoxIcon, CartIcon, EditIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
 import { Button, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
 
-type Route = 'runs' | 'orders' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
+type Route = 'runs' | 'orders' | 'quotes' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
 
 export default function App() {
   const t = useTheme();
@@ -31,6 +32,7 @@ export default function App() {
   const [supSel, setSupSel] = useState<string | null>(null);
   const [ordSel, setOrdSel] = useState<string | null>(null);
   const [custSel, setCustSel] = useState<string | null>(null);
+  const [quoteSel, setQuoteSel] = useState<string | null>(null);
   const openOrder = (id: string) => {
     setOrdSel(id);
     setRoute('orders');
@@ -83,6 +85,8 @@ export default function App() {
             <RunsScreen sel={runSel} setSel={setRunSel} goSetup={() => { setSetTab('sizes'); setRoute('settings'); }} />
           ) : route === 'orders' ? (
             <OrdersScreen sel={ordSel} setSel={setOrdSel} openRun={openRun} />
+          ) : route === 'quotes' ? (
+            <QuotesScreen sel={quoteSel} setSel={setQuoteSel} openOrder={openOrder} />
           ) : route === 'sales' ? (
             <SalesScreen />
           ) : route === 'customers' ? (
@@ -163,6 +167,7 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
       </View>
       {item('runs', 'Runs', c => <ScissorsIcon color={c} />, active ? String(active) : undefined)}
       {item('orders', 'Orders', c => <CartIcon color={c} />, openOrders ? String(openOrders) : undefined)}
+      {item('quotes', 'Quotes', c => <EditIcon color={c} />, shop.quotes.filter(q => q.status === 'sent').length ? String(shop.quotes.filter(q => q.status === 'sent').length) : undefined)}
       {item('sales', 'Sales', c => <TagIcon color={c} />, late ? `${late} late` : undefined, true)}
       {item('customers', 'Customers', c => <PeopleIcon color={c} />)}
       <View style={{ height: 10 }} />

@@ -193,6 +193,33 @@ export interface Order {
   quote?: string;
 }
 
+export interface QuoteLine {
+  size: string;
+  qty: number;
+  /** Agreed price each; null follows your current price until it's sent */
+  price: number | null;
+}
+export interface Quote {
+  id: string;
+  no: string;
+  cust: string | null;
+  title: string;
+  status: 'draft' | 'sent' | 'accepted' | 'declined';
+  made: Day;
+  sent: Day | null;
+  acc: Day | null;
+  /** Price holds until */
+  until: Day;
+  lines: QuoteLine[];
+  /** none, b2g1half, spend150, or bundle:<id> */
+  deal: string;
+  /** Deposit to start, percent */
+  deposit: number;
+  pickup: boolean;
+  notes: string;
+  order: string | null;
+}
+
 export interface Bundle {
   id: string;
   name: string;
@@ -438,12 +465,15 @@ export interface Shop {
     payLabor: boolean;
     /** Free shipping over `threshold`; otherwise charge `charge`. `cost` is what a label costs you. */
     ship: { threshold: number; charge: number; cost: number };
+    /** What every quote says: how to reach you, how to pay, and your notes */
+    quote: { email: string; phone: string; insta: string; site: string; pay: string; notes: string[]; holdDays: number };
   };
   suppliers: Supplier[];
   supplies: Supply[];
   customers: Customer[];
   sales: Sale[];
   orders: Order[];
+  quotes: Quote[];
   bundles: Bundle[];
   usage: UsageLine[];
   products: Product[];

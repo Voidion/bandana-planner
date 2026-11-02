@@ -11,6 +11,7 @@ type FilesModule = {
   revealFile(path: string): Promise<boolean>;
   dataFolder(): Promise<string>;
   openTextFile(title: string, kind: string, pattern: string): Promise<string>;
+  openPath?(path: string): Promise<boolean>;
 };
 
 function nativeFiles(): FilesModule | null {
@@ -90,4 +91,23 @@ export async function openTextFile(title: string, kind: string, pattern: string)
     };
     input.click();
   });
+}
+
+/** Opens a saved file in its usual app (the PDF viewer for a quote). */
+export async function openPath(path: string): Promise<void> {
+  if (files && files.openPath) await files.openPath(path);
+}
+
+/** Saves a file into Documents › Bandana Planner › <folder>. In the browser preview it downloads instead. */
+export async function saveDocument(folder: string, name: string, text: string, type = 'application/pdf'): Promise<string> {
+  if (files) return files.saveCutFile(folder, name, text);
+  if (web.document) {
+    const bytes = new Uint8Array(text.length);
+    for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 255;
+    const a = web.document.createElement('a');
+    a.href = web.URL.createObjectURL(new web.Blob([bytes], { type }));
+    a.download = name;
+    a.click();
+  }
+  return name;
 }
