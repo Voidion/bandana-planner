@@ -169,6 +169,8 @@ export interface Sale {
   /** Taken out of finished stock (Undo puts it back) */
   from: StockLine[];
   sup?: { id: string; name: string; n: number }[];
+  /** Other costs of the sale (a market's booth fee) */
+  costs?: number;
 }
 
 export type OrderStatus = 'new' | 'delivered';
@@ -218,6 +220,23 @@ export interface Quote {
   pickup: boolean;
   notes: string;
   order: string | null;
+}
+
+export interface MarketTap {
+  k: string;
+  price: number;
+  pay: 'Card' | 'Cash';
+  t: number;
+}
+export interface MarketDay {
+  open: boolean;
+  name: string;
+  booth: number;
+  goal: number;
+  pay: 'Card' | 'Cash';
+  tally: MarketTap[];
+  openedAt: number | null;
+  last?: { name: string; sale: string; n: number; total: number; day: Day } | null;
 }
 
 export interface Bundle {
@@ -475,6 +494,7 @@ export interface Shop {
   orders: Order[];
   quotes: Quote[];
   bundles: Bundle[];
+  market: MarketDay;
   usage: UsageLine[];
   products: Product[];
 }

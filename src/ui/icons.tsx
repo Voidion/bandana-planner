@@ -168,3 +168,10 @@ export const RestockIcon = I(
     <Path d="M4.5 19.5V15H9" />
   </>,
 );
+export const TruckIcon = I(
+  <>
+    <Path d="M3 6.5h11v9.5H3zM14 9.5h4l3 3.5v3h-7" />
+    <Circle cx="7" cy="17.5" r="1.8" />
+    <Circle cx="17.5" cy="17.5" r="1.8" />
+  </>,
+);

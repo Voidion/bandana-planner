@@ -40,6 +40,7 @@ import { CloseIcon, PlusIcon, TrashIcon } from '../ui/icons';
 import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, Select, Sheet, showSnack, Stepper, Swatch, T } from '../ui/kit';
 import { F, R, useTheme } from '../ui/theme';
 import { CartIcon, TagIcon, StoreIcon } from '../ui/icons';
+import { ShopifyImport } from './ShopifyImport';
 
 const twoPane = (left: React.ReactNode, right: React.ReactNode, t: any, w = 360) => (
   <View style={{ flex: 1, flexDirection: 'row' }}>
@@ -171,6 +172,7 @@ export function SalesScreen() {
   const [rec, setRec] = useState(false);
   const [payFor, setPayFor] = useState<Sale | null>(null);
   const [f, setF] = useState<'all' | 'owed'>('all');
+  const [imp, setImp] = useState(false);
   const list = [...shop.sales].sort((a, b) => b.day.localeCompare(a.day) || b.id.localeCompare(a.id));
   const owed = list.filter(e => saleOwed(e) > 0);
   const shown = f === 'owed' ? owed : list;
@@ -181,7 +183,10 @@ export function SalesScreen() {
     <ScrollView contentContainerStyle={{ padding: 32, gap: 22, maxWidth: 1040 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <T s="title">Sales</T>
-        <Button title="Record a sale" icon={c => <PlusIcon color={c} size={16} />} onPress={() => setRec(true)} />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Button kind="secondary" title="Import from Shopify" onPress={() => setImp(true)} />
+          <Button title="Record a sale" icon={c => <PlusIcon color={c} size={16} />} onPress={() => setRec(true)} />
+        </View>
       </View>
       <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
         {[
@@ -226,6 +231,7 @@ export function SalesScreen() {
       <T s="small">Profit here is the sale less fees and materials. Fees use your card rate from Settings › Pricing.</T>
       {rec ? <RecordSaleSheet onClose={() => setRec(false)} /> : null}
       {payFor ? <PaySheet e={payFor} onClose={() => setPayFor(null)} /> : null}
+      {imp ? <ShopifyImport onClose={() => setImp(false)} /> : null}
     </ScrollView>
   );
 }

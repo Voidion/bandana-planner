@@ -3,6 +3,7 @@ import * as E from '../engine/engine';
 import { addDays, itemName, rel, sync, todayDay } from '../lib/plan';
 import { getShop, newId, planRun, round2, update, withLog } from './store';
 import type { Channel, Customer, Dog, Order, Sale, Shop, StockLine } from './types';
+import type { ShopifyOrder } from '../lib/shopify';
 
 /* ---------- customers ---------- */
 export function addCustomer(p: Partial<Customer> = {}): string {
@@ -93,6 +94,9 @@ export interface SaleInput {
   /** Already taken from stock (an order's set-aside bandanas) */
   from?: StockLine[];
   what?: string;
+  /** Fees worked out by the caller (market day splits card and cash) */
+  fees?: number;
+  costs?: number;
 }
 
 /** Records a sale. Takes what sold out of finished stock. Returns its id, or null if there isn't enough in stock. */
@@ -132,7 +136,8 @@ export function recordSale(x: SaleInput): string | null {
       sub: amount,
       ship: round2(x.ship || 0),
       tax: 0,
-      fees: E.feeFor(x.ch, amount + (x.ship || 0)),
+      fees: x.fees ?? E.feeFor(x.ch, amount + (x.ship || 0)),
+      costs: x.costs || undefined,
       mat: round2(E.matFor(items) + suCost),
       refund: 0,
       paid: x.later ? 0 : round2(amount + (x.ship || 0)),
@@ -180,7 +185,7 @@ export function refundSale(id: string, amt: number) {
 
 export const saleTotal = (e: Sale) => round2(e.sub + (e.ship || 0) + (e.tax || 0) - (e.refund || 0));
 export const saleOwed = (e: Sale) => Math.max(0, round2(saleTotal(e) - (e.paid || 0)));
-export const saleProfit = (e: Sale) => round2(e.sub - (e.refund || 0) - (e.fees || 0) - (e.mat || 0));
+export const saleProfit = (e: Sale) => round2(e.sub - (e.refund || 0) - (e.fees || 0) - (e.mat || 0) - (e.costs || 0));
 export const isLate = (e: Sale) => saleOwed(e) > 0 && !!e.due && (rel(e.due) ?? 0) < 0;
 
 /* ---------- orders ---------- */
@@ -313,4 +318,106 @@ export function deliverOrder(id: string, opts: { later?: boolean; dueIn?: number
   });
   update(q => ({ ...q, orders: q.orders.map(x => (x.id === id ? { ...x, status: 'delivered', deliveredAt: todayDay(), fromStock: from } : x)) }));
   return sid;
+}
+
+/* ---------- market day ---------- */
+export function startMarket(p: { name: string; booth: number; goal: number }) {
+  update(s => withLog({ ...s, market: { ...s.market, ...p, open: true, tally: [], openedAt: Date.now() } }, 'started market day', p.name));
+}
+export const setMarket = (p: Partial<Shop['market']>) => update(s => ({ ...s, market: { ...s.market, ...p } }));
+export function tap(k: string, price: number) {
+  update(s => ({ ...s, market: { ...s.market, tally: [...s.market.tally, { k, price, pay: s.market.pay, t: Date.now() }] } }));
+}
+export function untap() {
+  update(s => ({ ...s, market: { ...s.market, tally: s.market.tally.slice(0, -1) } }));
+}
+/** Left to sell: free stock less what's been tapped today */
+export function marketLeft(s: Shop) {
+  const free = freeStock(s);
+  s.market.tally.forEach(x => (free[x.k] = (free[x.k] || 0) - 1));
+  return free;
+}
+/** Close the market: everything tapped becomes one Market sale, with card fees on the card part and the booth fee as a cost. */
+export function closeMarket(): string | null {
+  const s = getShop();
+  const m = s.market;
+  if (!m.tally.length) {
+    update(x => ({ ...x, market: { ...x.market, open: false, tally: [], openedAt: null } }));
+    return null;
+  }
+  const items: Record<string, number> = {};
+  m.tally.forEach(x => (items[x.k] = (items[x.k] || 0) + 1));
+  const total = round2(m.tally.reduce((a, x) => a + x.price, 0));
+  const card = m.tally.filter(x => x.pay === 'Card');
+  const f = s.cfg.fees;
+  const fees = f.on ? round2(card.reduce((a, x) => a + x.price, 0) * (f.rate / 100) + card.length * f.flat) : 0;
+  const id = recordSale({ ch: 'Market', items, amount: total, fees, costs: m.booth || 0, ref: m.name, what: m.name || 'Market day' });
+  if (!id) return null;
+  update(x => ({ ...x, market: { ...x.market, open: false, tally: [], openedAt: null, last: { name: m.name, sale: id, n: m.tally.length, total, day: todayDay() } } }));
+  return id;
+}
+
+/* ---------- Shopify import ---------- */
+
+export const shopifySeen = (s: Shop, ref: string) => s.sales.some(e => e.ch === 'Shopify' && e.ref === ref) || s.orders.some(o => o.src === 'Shopify ' + ref);
+
+/** Unfulfilled orders become orders to make; fulfilled ones are recorded as past sales (they don't change stock).
+    `map` turns each Shopify line item name into one of your sizes or styles (unmapped lines are skipped). */
+export function importShopify(list: ShopifyOrder[], map: Record<string, string | null>): { orders: number; sales: number; skipped: number } {
+  const res = { orders: 0, sales: 0, skipped: 0 };
+  update(s0 => {
+    let s = s0;
+    sync(s);
+    const sales: Sale[] = [];
+    const orders: Order[] = [];
+    const customers = s.customers.slice();
+    for (const o of list) {
+      if (shopifySeen(s, o.ref)) {
+        res.skipped++;
+        continue;
+      }
+      const items: Record<string, number> = {};
+      o.lines.forEach(l => {
+        const k = map[l.name];
+        if (k) items[k] = (items[k] || 0) + l.qty;
+      });
+      if (!Object.keys(items).length) {
+        res.skipped++;
+        continue;
+      }
+      let c = customers.find(x => (o.email && x.email.toLowerCase() === o.email.toLowerCase()) || (o.name && x.name.toLowerCase() === o.name.toLowerCase()));
+      if (!c && (o.name || o.email)) {
+        c = { id: newId('c'), name: o.name || o.email, kind: 'Shopify', contact: '', email: o.email, phone: '', handle: '', dogs: [], notes: '', added: todayDay() };
+        customers.push(c);
+      }
+      const day = o.day || todayDay();
+      if (o.fulfilled) {
+        sales.push({
+          id: newId('L'),
+          day,
+          ch: 'Shopify',
+          ref: o.ref,
+          cust: c?.id,
+          what: 'Shopify ' + o.ref,
+          items,
+          sub: round2(o.subtotal),
+          ship: round2(o.shipping),
+          tax: round2(o.taxes),
+          fees: E.feeFor('Shopify', o.total),
+          mat: round2(E.matFor(items)),
+          refund: 0,
+          paid: o.paid ? round2(o.total) : 0,
+          pays: o.paid ? [{ day, amt: round2(o.total) }] : [],
+          from: [],
+        });
+        res.sales++;
+      } else {
+        orders.push({ id: newId('o'), cust: c?.id || null, title: `Shopify ${o.ref}${c ? ' · ' + c.name : ''}`, src: 'Shopify ' + o.ref, qty: items, due: null, fab: null, run: null, fromStock: [], status: 'new', deliveredAt: null, price: round2(o.subtotal), notes: '' });
+        res.orders++;
+      }
+    }
+    s = { ...s, customers, sales: [...s.sales, ...sales], orders: [...orders, ...s.orders] };
+    return withLog(s, 'imported from Shopify', `${res.orders} to make · ${res.sales} past sales`);
+  });
+  return res;
 }

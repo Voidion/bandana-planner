@@ -83,6 +83,7 @@ export function emptyShop(): Shop {
     orders: [],
     quotes: [],
     bundles: [],
+    market: { open: false, name: '', booth: 0, goal: 30, pay: 'Card', tally: [], openedAt: null, last: null },
     usage: [],
     products: [],
   };
@@ -157,6 +158,7 @@ export function migrate(raw: unknown): Shop {
     sales: arr(s.sales),
     orders: arr(s.orders),
     quotes: arr(s.quotes),
+    market: { ...base.market, ...(s.market && Array.isArray(s.market.tally) ? s.market : {}) },
     bundles: arr(s.bundles),
     products: arr(s.products),
   };

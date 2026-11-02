@@ -1,6 +1,6 @@
 /* Bandana Planner for Windows: runs, fabric and finished stock, saved on this computer. */
 import React, { useEffect, useState } from 'react';
-import { Pressable, StatusBar, Text, View } from 'react-native';
+import { Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { clock } from './src/lib/format';
 import { timerMs } from './src/lib/plan';
 import { FabricScreen } from './src/screens/FabricScreen';
@@ -12,15 +12,16 @@ import { StockScreen } from './src/screens/StockScreen';
 import { RestockScreen, SuppliersScreen, SuppliesScreen } from './src/screens/ShelfScreens';
 import { CustomersScreen, OrdersScreen, SalesScreen } from './src/screens/SellingScreens';
 import { QuotesScreen } from './src/screens/QuotesScreen';
+import { MarketScreen } from './src/screens/MarketScreen';
 import { freeStock, isLate, orderStage, saleOwed } from './src/state/selling';
 import { restockList } from './src/state/shelf';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
-import { BatchesIcon, BoxIcon, CartIcon, EditIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
+import { BatchesIcon, BoxIcon, CartIcon, EditIcon, TruckIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
 import { Button, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
 
-type Route = 'runs' | 'orders' | 'quotes' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
+type Route = 'runs' | 'orders' | 'quotes' | 'market' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
 
 export default function App() {
   const t = useTheme();
@@ -87,6 +88,8 @@ export default function App() {
             <OrdersScreen sel={ordSel} setSel={setOrdSel} openRun={openRun} />
           ) : route === 'quotes' ? (
             <QuotesScreen sel={quoteSel} setSel={setQuoteSel} openOrder={openOrder} />
+          ) : route === 'market' ? (
+            <MarketScreen />
           ) : route === 'sales' ? (
             <SalesScreen />
           ) : route === 'customers' ? (
@@ -165,19 +168,21 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
         </View>
         <T style={{ fontWeight: '700', fontSize: 16 }}>Bandana Planner</T>
       </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 2 }}>
       {item('runs', 'Runs', c => <ScissorsIcon color={c} />, active ? String(active) : undefined)}
       {item('orders', 'Orders', c => <CartIcon color={c} />, openOrders ? String(openOrders) : undefined)}
       {item('quotes', 'Quotes', c => <EditIcon color={c} />, shop.quotes.filter(q => q.status === 'sent').length ? String(shop.quotes.filter(q => q.status === 'sent').length) : undefined)}
       {item('sales', 'Sales', c => <TagIcon color={c} />, late ? `${late} late` : undefined, true)}
+      {item('market', 'Market day', c => <StoreIcon color={c} />, shop.market.open ? 'Open' : undefined)}
       {item('customers', 'Customers', c => <PeopleIcon color={c} />)}
       <View style={{ height: 10 }} />
       {item('fabric', 'Fabric', c => <FabricIcon color={c} />, low ? `${low} low` : undefined, true)}
       {item('supplies', 'Supplies', c => <SpoolIcon color={c} />)}
       {item('restock', 'Restock', c => <RestockIcon color={c} />, need ? String(need) : undefined, true)}
-      {item('suppliers', 'Suppliers', c => <StoreIcon color={c} />)}
+      {item('suppliers', 'Suppliers', c => <TruckIcon color={c} />)}
       {item('stock', 'Finished stock', c => <BoxIcon color={c} />, stock ? String(stock) : undefined)}
       {item('settings', 'Settings', c => <GearIcon color={c} />)}
-      <View style={{ flex: 1 }} />
+      </ScrollView>
       <TimerCard onOpen={openRun} />
       <Text style={{ fontSize: F.f12, color: save === 'error' ? t.danger : t.text3, paddingHorizontal: 10 }}>
         {save === 'error' ? 'Couldn’t save. Retrying with your next change.' : save === 'saving' ? 'Saving…' : 'Saved on this computer'}
