@@ -75,6 +75,47 @@ export interface Fabric {
   from?: string;
 }
 
+/** Something else you make from fabric, like bows. Each style is a variant; a part is an add-on piece (a loop, a clip). */
+export interface ProductPart {
+  id: string;
+  name: string;
+  /** Cut width and length, inches */
+  w: number;
+  l: number;
+  pieces: number;
+  mins: number;
+  notions: number;
+  file?: CutFile | null;
+}
+export interface ProductVariant {
+  id: string;
+  pid: string;
+  name: string;
+  price: number | null;
+  w: number;
+  l: number;
+  /** Fabric pieces for one */
+  pieces: number;
+  /** Minutes to make one */
+  mins: number;
+  /** Notions for one, dollars */
+  notions: number;
+  part: string | null;
+  file?: CutFile | null;
+}
+export interface Product {
+  id: string;
+  name: string;
+  /** One of them, for counts: "bow" */
+  one: string;
+  varLabel: string;
+  partLabel: string;
+  /** Steps with their share of the time */
+  steps: { n: string; r: number }[];
+  parts: ProductPart[];
+  variants: ProductVariant[];
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -158,6 +199,8 @@ export interface Run {
   status: RunStatus;
   /** Bandanas per size */
   qty: Record<SizeKey, number>;
+  /** Other products per variant id */
+  prod?: Record<string, number>;
   body: string | null;
   ties: string | null;
   /** What it needs from the shelf (kept up to date while it's a draft, frozen once cut) */
@@ -312,6 +355,5 @@ export interface Shop {
   suppliers: Supplier[];
   supplies: Supply[];
   usage: UsageLine[];
-  /** Engine compatibility: read by the shared engine, filled in later stages */
-  products: unknown[];
+  products: Product[];
 }

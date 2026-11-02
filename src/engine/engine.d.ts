@@ -6,6 +6,7 @@ export function planNeeds(
   qty: Record<string, number>,
   bodyId: string | null,
   tiesId: string | null,
+  prod?: Record<string, number>,
 ): { body: number; ties: number; same: boolean; learned?: number };
 export function grainOf(f: any): any;
 export function topOf(f: any): string;

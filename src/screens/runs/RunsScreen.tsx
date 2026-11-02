@@ -21,7 +21,7 @@ import type { Run } from '../../state/types';
 import { ChevIcon, CloseIcon, DefectIcon, PlusIcon, ScissorsIcon, TrashIcon, WarnIcon } from '../../ui/icons';
 import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, showSnack, Stepper, Swatch, T } from '../../ui/kit';
 import { F, R, useTheme } from '../../ui/theme';
-import { CutLayout, InThisRun, MoneyCard, shortName, StepRow, Tile } from './parts';
+import { CutLayout, InThisRun, MoneyCard, otherCount, shortName, StepRow, Tile } from './parts';
 import { CutSheet, DefectSheet, FabricPicker, FinishSheet, StepSheet } from './sheets';
 
 type SheetState = null | { k: 'cut' } | { k: 'step'; id: string } | { k: 'finish' } | { k: 'defect' } | { k: 'pick'; role: 'body' | 'ties' };
@@ -37,6 +37,7 @@ export function RunsScreen({ sel, setSel, goSetup }: { sel: string | null; setSe
   const row = (r: Run, i: number) => {
     const body = shop.fabrics.find(f => f.id === r.body);
     const n = planCount(r);
+    const other = otherCount(r);
     const d = rel(r.due);
     const dn = r.steps.filter(s => s.done).length;
     return (
@@ -45,7 +46,7 @@ export function RunsScreen({ sel, setSel, goSetup }: { sel: string | null; setSe
         <View style={{ flex: 1, gap: 2 }}>
           <T style={{ fontWeight: '600' }} numberOfLines={1}>{shortName(r)}</T>
           <T s="sub" numberOfLines={1}>
-            {plural(n, 'bandana')}
+            {n || !other ? plural(n, 'bandana') : plural(other, 'item')}{n && other ? ` + ${other} other` : ''}
             {r.status === 'active' ? ` · ${dn} of ${r.steps.length} steps` : r.status === 'done' ? ` · ${dayLabel(r.finishedAt, { month: 'short', day: 'numeric' })}` : body ? ' · ' + body.name : ''}
           </T>
         </View>
@@ -176,12 +177,12 @@ function DueField({ value, onChange }: { value: string | null; onChange: (d: str
 function DraftView({ r, goSetup, setSel, setSheet }: { r: Run; goSetup: () => void; setSel: (id: string | null) => void; setSheet: (s: SheetState) => void }) {
   const shop = useShop();
   const t = useTheme();
-  const res = useMemo(() => computePlan(shop, r), [shop, r.qty, r.body, r.ties]);
+  const res = useMemo(() => computePlan(shop, r), [shop, r.qty, r.prod, r.body, r.ties]);
   const sizes = Object.entries(shop.sizes);
   const anyReady = sizes.some(([k]) => sizeReady(shop, k));
   const body = shop.fabrics.find(f => f.id === r.body) || null;
   const ties = shop.fabrics.find(f => f.id === r.ties) || null;
-  const n = planCount(r);
+  const n = planCount(r) + otherCount(r);
   const nums = useMemo(() => runNumbers(shop, r), [shop, r]);
   const set = (patch: Partial<Run>) => editRun(r.id, patch);
   const remove = () => {
@@ -228,6 +229,22 @@ function DraftView({ r, goSetup, setSel, setSheet }: { r: Run; goSetup: () => vo
               );
             })}
           </Card>
+          {shop.products.filter(p => p.variants.length).map(p => (
+            <View key={p.id} style={{ gap: 8, marginTop: 14 }}>
+              <T s="h2">{p.name}</T>
+              <Card pad={false} style={{ overflow: 'hidden' }}>
+                {p.variants.map((v, i) => (
+                  <Row key={v.id} first={i === 0}>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <T style={{ fontWeight: '600' }}>{v.name}</T>
+                      <T s="sub">{v.price != null ? money(v.price) + ' each' : 'Not priced'}{v.file ? ' · cut file' : ''}</T>
+                    </View>
+                    <Stepper label={v.name} value={(r.prod || {})[v.id] || 0} onChange={x => set({ prod: { ...(r.prod || {}), [v.id]: x } })} />
+                  </Row>
+                ))}
+              </Card>
+            </View>
+          ))}
         </Section>
 
         <View style={{ flex: 1, minWidth: 320, maxWidth: 480, gap: 22 }}>
@@ -259,7 +276,7 @@ function DraftView({ r, goSetup, setSel, setSheet }: { r: Run; goSetup: () => vo
 
       {n ? (
         <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
-          <Tile label="Bandanas" value={String(n)} sub={res.cp ? plural(res.cp.mats.length, 'mat') : undefined} />
+          <Tile label={otherCount(r) && !planCount(r) ? 'Items' : 'Bandanas'} value={String(planCount(r) || n)} sub={res.cp ? plural(res.cp.mats.length, 'mat') : undefined} />
           <Tile label="Fabric" value={yd(res.needs.reduce((a, x) => a + x.yards, 0))} sub={res.cp ? `${Math.round(res.cp.waste * 100)}% waste` : undefined} />
           <Tile label="Work" value={mins(nums.workMins)} sub={`${r.steps.length} steps`} />
           <Tile label={shop.cfg.payLabor ? 'Per hour' : 'Profit'} value={Object.keys(r.qty).filter(k => r.qty[k]).every(k => shop.sizes[k]?.price != null) ? (shop.cfg.payLabor ? money(nums.perHour) : money0(nums.profit)) : '–'} sub={`Materials ${money(nums.materials)}`} />
@@ -376,7 +393,7 @@ function BenchView({ r, setSheet }: { r: Run; setSheet: (s: SheetState) => void 
   );
   const leftCol = (
     <View style={{ flex: wide ? 1 : undefined, alignSelf: wide ? undefined : 'stretch', gap: 22, minWidth: 0 }}>
-      <Section title={`In this run · ${plural(planCount(r), 'bandana')}`}><InThisRun r={r} /></Section>
+      <Section title={`In this run · ${plural(planCount(r), 'bandana')}${otherCount(r) ? ` + ${otherCount(r)} other` : ''}`}><InThisRun r={r} /></Section>
       <MoneyCard r={r} />
       {fabric}
     </View>

@@ -1,25 +1,27 @@
 /* Pieces shared by the run screens: the cut layout, money summary, sizes in the run, and step rows. */
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { clock, inch, mins, money, pct, plural, yd } from '../../lib/format';
 import { computePlan, cutFiles, MATS, matWaste, runNumbers, timerMs } from '../../lib/plan';
 import { onDevice, revealFile, saveCutFile } from '../../state/storage';
 import { pauseTimer, startTimer, stopTimer, tickStep, useShop } from '../../state/store';
 import type { Run, Step } from '../../state/types';
 import { CheckIcon, DownloadIcon, FolderIcon, PauseIcon, PlayIcon, StopIcon } from '../../ui/icons';
-import { Button, Card, Section, showSnack, T } from '../../ui/kit';
+import { Button, Card, Row, Section, Sheet, showSnack, Swatch, T } from '../../ui/kit';
 import { MatView } from '../../ui/MatView';
 import { F, R, useTheme } from '../../ui/theme';
 import { useNow } from '../../ui/useNow';
 
 export const shortName = (r: Run) => (r.name || 'Untitled run').split(' — ')[0];
+export const otherCount = (r: Run) => Object.values(r.prod || {}).reduce((a, b) => a + (b || 0), 0);
 
 /** Big number tiles: 12 Medium, 6 Large */
 export function InThisRun({ r }: { r: Run }) {
   const shop = useShop();
   const t = useTheme();
   const sizes = Object.keys(shop.sizes).filter(k => r.qty[k]);
-  if (!sizes.length) return null;
+  const vars = shop.products.flatMap(p => p.variants).filter(v => (r.prod || {})[v.id]);
+  if (!sizes.length && !vars.length) return null;
   const straps: Record<string, number> = {};
   sizes.forEach(k => {
     const st = shop.straps.find(x => x.id === shop.sizes[k].strap);
@@ -38,6 +40,13 @@ export function InThisRun({ r }: { r: Run }) {
             </View>
           );
         })}
+        {vars.map(v => (
+          <View key={v.id} style={{ minWidth: 96, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: t.surface, gap: 1 }}>
+            <T style={{ fontSize: 24, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{(r.prod || {})[v.id]}</T>
+            <T style={{ fontSize: F.f14, fontWeight: '600' }}>{v.name}</T>
+            <T s="small">{shop.products.find(p => p.id === v.pid)?.name}</T>
+          </View>
+        ))}
       </View>
       {Object.keys(straps).length ? <T s="sub">Plus {Object.entries(straps).map(([n, c]) => `${c} ${n.toLowerCase()} strap${c === 1 ? '' : 's'}`).join(' · ')}.</T> : null}
     </View>
@@ -49,7 +58,7 @@ export function MoneyCard({ r }: { r: Run }) {
   const shop = useShop();
   const t = useTheme();
   const n = useMemo(() => runNumbers(shop, r), [shop, r]);
-  const priced = Object.keys(r.qty).filter(k => r.qty[k]).every(k => shop.sizes[k]?.price != null);
+  const priced = Object.keys(r.qty).filter(k => r.qty[k]).every(k => shop.sizes[k]?.price != null) && shop.products.flatMap(p => p.variants).filter(v => (r.prod || {})[v.id]).every(v => v.price != null);
   const pay = shop.cfg.payLabor;
   const stat = (v: string, l: string, color?: string) => (
     <View style={{ flex: 1, gap: 2 }}>
@@ -80,28 +89,15 @@ export function CutLayout({ r, editable }: { r: Run; editable?: boolean }) {
   const shop = useShop();
   const t = useTheme();
   const [w, setW] = useState(600);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState<string | null>(null);
-  const res = useMemo(() => computePlan(shop, r), [shop, r.qty, r.body, r.ties]);
+  const [exporting, setExporting] = useState(false);
+  const res = useMemo(() => computePlan(shop, r), [shop, r.qty, r.prod, r.body, r.ties]);
   const vm = MATS.find(m => m.id === shop.cfg.cut.mat) || MATS[1];
   const body = shop.fabrics.find(f => f.id === r.body) || null;
   const ties = shop.fabrics.find(f => f.id === r.ties) || null;
   const cols = Math.max(2, Math.min(5, Math.floor((w + 16) / (170 + 16))));
   const matW = Math.floor((w - (cols - 1) * 16) / cols);
   if (!res.cp) return null;
-  const save = async () => {
-    setSaving(true);
-    try {
-      const files = cutFiles(shop, r, res.cp);
-      let last = '';
-      for (const f of files) last = await saveCutFile(shortName(r), f.name, f.svg);
-      setSaved(last);
-      showSnack(`${plural(files.length, 'cut file')} saved`);
-    } catch (e) {
-      showSnack('Couldn’t save the cut files. Check there’s space on the drive.');
-    }
-    setSaving(false);
-  };
+  const what = (m: any) => (m.fab === 'strap' ? plural(m.straps, 'strap') : m.fab === 'bow' ? plural(m.bows || m.pieces.length, 'piece') : plural(m.bandanas, 'bandana'));
   return (
     <Section
       title="On the mats"
@@ -112,32 +108,16 @@ export function CutLayout({ r, editable }: { r: Run; editable?: boolean }) {
           {res.cp.mats.map((m: any, i: number) => (
             <View key={i} style={{ gap: 6 }}>
               <MatView mat={m} cp={res.cp} matSize={vm} width={matW} bodyColor={body ? body.color : t.barA} strapColor={ties ? ties.color : t.barG} />
-              <T s="small" style={{ fontWeight: '600' }}>Mat {i + 1} · {m.fab === 'strap' ? plural(m.straps, 'strap') : plural(m.bandanas, 'bandana')}</T>
+              <T s="small" style={{ fontWeight: '600' }}>Mat {i + 1} · {what(m)}</T>
               <T s="small" color={matWaste(m) > 0.3 ? t.warn : t.text3}>{pct(matWaste(m))} waste</T>
             </View>
           ))}
         </View>
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Button
-            kind={editable ? 'secondary' : 'primary'}
-            small
-            title={saving ? 'Saving…' : onDevice ? 'Save cut files' : 'Download cut files'}
-            icon={c => (saving ? <ActivityIndicator size="small" color={c} /> : <DownloadIcon color={c} size={16} />)}
-            onPress={save}
-            disabled={saving}
-          />
-          <T s="small" style={{ flex: 1 }}>One SVG per mat, sized in inches, for Design Space.</T>
+          <Button kind={editable ? 'secondary' : 'primary'} small title="Export for Design Space" icon={c => <DownloadIcon color={c} size={16} />} onPress={() => setExporting(true)} />
+          <T s="small" style={{ flex: 1 }}>One SVG per mat, sized in inches.</T>
         </View>
-        {saved && onDevice ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: t.bg, borderRadius: R.card, padding: 12 }}>
-            <FolderIcon color={t.text2} size={20} />
-            <View style={{ flex: 1 }}>
-              <T style={{ fontWeight: '600' }}>Saved in Documents › Bandana Planner › {shortName(r)}</T>
-              <T s="sub">In Design Space, upload each file and set the size to match the mat.</T>
-            </View>
-            <Button small kind="secondary" title="Show in folder" onPress={() => revealFile(saved)} />
-          </View>
-        ) : null}
+        {exporting ? <ExportSheet r={r} cp={res.cp} onClose={() => setExporting(false)} what={what} /> : null}
       </Card>
     </Section>
   );
@@ -248,3 +228,72 @@ export function Tile({ label, value, sub, color }: { label: string; value: strin
 }
 
 export { yd };
+
+/** Export for Design Space: mats grouped by fabric, save one or all. */
+function ExportSheet({ r, cp, onClose, what }: { r: Run; cp: any; onClose: () => void; what: (m: any) => string }) {
+  const shop = useShop();
+  const t = useTheme();
+  const [saved, setSaved] = useState<string | null>(null);
+  const [busy, setBusy] = useState<number | 'all' | null>(null);
+  const vm = MATS.find(m => m.id === shop.cfg.cut.mat) || MATS[1];
+  const body = shop.fabrics.find(f => f.id === r.body) || null;
+  const ties = shop.fabrics.find(f => f.id === r.ties) || null;
+  const fabOf = (m: any) => (m.fab === 'strap' ? ties || body : body);
+  const groups: { f: any; name: string; mats: number[] }[] = [];
+  cp.mats.forEach((m: any, i: number) => {
+    const f = fabOf(m);
+    const name = f ? f.name : m.fab === 'strap' ? 'Strap fabric' : 'Body fabric';
+    let g = groups.find(x => x.name === name);
+    if (!g) groups.push((g = { f, name, mats: [] }));
+    g.mats.push(i);
+  });
+  const files = cutFiles(shop, r, cp);
+  const save = async (which: number | 'all') => {
+    setBusy(which);
+    try {
+      let last = '';
+      for (const [i, f] of files.entries()) if (which === 'all' || which === i) last = await saveCutFile(shortName(r), f.name, f.svg);
+      setSaved(last);
+      showSnack(which === 'all' ? `${plural(files.length, 'cut file')} saved` : `Mat ${(which as number) + 1} saved`);
+    } catch (e) {
+      showSnack('Couldn’t save the cut files. Check there’s space on the drive.');
+    }
+    setBusy(null);
+  };
+  return (
+    <Sheet title="Export for Design Space" sub={`${shortName(r)} · ${plural(cp.mats.length, 'mat')} · ${vm.name}`} onClose={onClose} width={600}
+      footer={<><Button kind="ghost" title="Close" onPress={onClose} /><Button title={busy === 'all' ? 'Saving…' : onDevice ? `Save all ${cp.mats.length}` : `Download all ${cp.mats.length}`} icon={c => <DownloadIcon color={c} size={16} />} onPress={() => save('all')} disabled={busy != null} /></>}>
+      <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ gap: 16 }}>
+        {groups.map(g => (
+          <View key={g.name} style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Swatch color={g.f ? g.f.color : t.sunken} size={28} />
+              <T style={{ fontWeight: '700', flex: 1 }}>{g.name}</T>
+              <T s="sub">{plural(g.mats.length, 'mat')}</T>
+            </View>
+            <View style={{ backgroundColor: t.bg, borderRadius: R.card, overflow: 'hidden' }}>
+              {g.mats.map((i, k) => (
+                <Row key={i} first={k === 0}>
+                  <MatView mat={cp.mats[i]} cp={cp} matSize={vm} width={44} bodyColor={body ? body.color : t.barA} strapColor={ties ? ties.color : t.barG} />
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <T style={{ fontWeight: '600' }}>Mat {i + 1}</T>
+                    <T s="sub">{what(cp.mats[i])} · {pct(matWaste(cp.mats[i]))} waste</T>
+                  </View>
+                  <Button small kind="secondary" title={busy === i ? 'Saving…' : 'Save'} onPress={() => save(i)} disabled={busy != null} />
+                </Row>
+              ))}
+            </View>
+          </View>
+        ))}
+        <T s="small">Load each mat with the fabric it names. In Design Space, upload a file and check its size matches the mat ({vm.mw} × {vm.ml}″). Every piece is drawn at its real size.</T>
+      </ScrollView>
+      {saved && onDevice ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <FolderIcon color={t.text2} size={20} />
+          <T s="sub" style={{ flex: 1 }}>Saved in Documents › Bandana Planner › {shortName(r)}</T>
+          <Button small kind="secondary" title="Show in folder" onPress={() => revealFile(saved)} />
+        </View>
+      ) : null}
+    </Sheet>
+  );
+}

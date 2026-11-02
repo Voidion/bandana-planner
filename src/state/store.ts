@@ -42,7 +42,7 @@ function hydrate(s: Shop): Shop {
     ...s,
     runs: s.runs.map(r => {
       if (r.steps.length) return r;
-      const steps = stepsForRun(s, r.tpl, r.qty).map(st => (r.cut && isCutStep(st.name) ? { ...st, done: true } : st));
+      const steps = stepsForRun(s, r.tpl, r.qty, r.prod).map(st => (r.cut && isCutStep(st.name) ? { ...st, done: true } : st));
       return { ...r, steps };
     }),
   };
@@ -169,7 +169,7 @@ function refreshRun(s: Shop, r: Run): Run {
   const res = computePlan(s, r);
   const fabrics = res.needs.filter(n => n.f).map(n => ({ f: n.f!.id, role: n.role, need: round2(n.yards), learned: n.learned }));
   const keep = r.status !== 'draft' || r.stepsEdited || r.steps.some(x => x.done || x.actual) || (s.timer && s.timer.run === r.id);
-  const steps = keep && r.steps.length ? r.steps : stepsForRun(s, r.tpl, r.qty);
+  const steps = keep && r.steps.length ? r.steps : stepsForRun(s, r.tpl, r.qty, r.prod);
   return { ...r, fabrics, steps };
 }
 function refreshDrafts(s: Shop): Shop {
@@ -190,6 +190,7 @@ export function planRun(from?: Partial<Run>): string {
       qty,
       body: from?.body !== undefined ? from.body : first,
       ties: from?.ties !== undefined ? from.ties : first,
+      prod: { ...(from?.prod || {}) },
       fabrics: [],
       tpl: from?.tpl && s.templates.some(t => t.id === from.tpl) ? from.tpl : s.cfg.defTpl,
       steps: [],
@@ -214,7 +215,7 @@ export function editRun(id: string, patch: Partial<Run>) {
   update(s => {
     const next = mapRun(s, id, r => ({ ...r, ...patch }));
     const r = findRun(next, id)!;
-    const needsRefresh = 'qty' in patch || 'body' in patch || 'ties' in patch || 'tpl' in patch;
+    const needsRefresh = 'qty' in patch || 'prod' in patch || 'body' in patch || 'ties' in patch || 'tpl' in patch;
     if (!needsRefresh) return next;
     if ('tpl' in patch) return mapRun(next, id, x => refreshRun(next, { ...x, stepsEdited: false }));
     return mapRun(next, id, () => refreshRun(next, r));
@@ -397,7 +398,7 @@ function recordTimer(s: Shop): Shop {
   const st = r && r.steps.find(x => x.id === m.step);
   const mins = Math.max(1, Math.round(timerMs(m) / 6e4));
   if (!r || !st) return { ...s, timer: null };
-  const pcs = Object.values(r.qty).reduce((a, b) => a + (b || 0), 0);
+  const pcs = Object.values(r.qty).reduce((a, b) => a + (b || 0), 0) + Object.values(r.prod || {}).reduce((a, b) => a + (b || 0), 0);
   return {
     ...mapRun(s, r.id, x => ({ ...x, steps: x.steps.map(y => (y.id === st.id ? { ...y, actual: mins, recorded: true, entered: false } : y)) })),
     timer: null,
@@ -471,17 +472,20 @@ export function finishRun(id: string) {
       finishedAt: today(),
       steps: x.steps.map(st => (st.done ? st : { ...st, done: true, untimed: !st.actual })),
     }));
-    const add: StockLine[] = Object.entries(r.qty)
+    const add: StockLine[] = [...Object.entries(r.qty), ...Object.entries(r.prod || {})]
       .filter(([, n]) => n > 0)
       .map(([size, n]) => ({ run: id, size, n }));
-    const n = add.reduce((a, x) => a + x.n, 0);
-    const supUse = next.supplies.filter(x => (x.use === 'bandana' || x.use === 'item') && n > 0).map(x => ({ id: x.id, name: x.name, unit: x.unit, n: round2((+x.per || 1) * n) }));
+    const n = Object.values(r.qty).reduce((a, b) => a + (b || 0), 0);
+    const nItems = add.reduce((a, x) => a + x.n, 0);
+    const supUse = next.supplies
+      .filter(x => (x.use === 'bandana' && n > 0) || (x.use === 'item' && nItems > 0))
+      .map(x => ({ id: x.id, name: x.name, unit: x.unit, n: round2((+x.per || 1) * (x.use === 'item' ? nItems : n)) }));
     const take = Object.fromEntries(supUse.map(u => [u.id, u.n]));
     next = mapRun(next, id, x => ({ ...x, supUse }));
     return withLog(
       { ...next, stock: [...next.stock, ...add], supplies: next.supplies.map(x => (take[x.id] ? { ...x, qty: Math.max(0, round2(x.qty - take[x.id])) } : x)) },
       'finished ' + short(r),
-      `${n} bandana${n === 1 ? '' : 's'}${supUse.length ? ' · used ' + supUse.map(u => `${u.n} ${u.name.toLowerCase()}`).join(', ') : ''}`,
+      `${nItems} item${nItems === 1 ? '' : 's'}${supUse.length ? ' · used ' + supUse.map(u => `${u.n} ${u.name.toLowerCase()}`).join(', ') : ''}`,
     );
   });
 }
@@ -503,7 +507,7 @@ export function reopenRun(id: string) {
 export function planAgain(id: string): string | null {
   const r = findRun(shop, id);
   if (!r) return null;
-  return planRun({ name: short(r) + ' again', qty: r.qty, body: r.body, ties: r.ties, tpl: r.tpl });
+  return planRun({ name: short(r) + ' again', qty: r.qty, prod: r.prod, body: r.body, ties: r.ties, tpl: r.tpl });
 }
 
 export function stockBySize(s: Shop) {

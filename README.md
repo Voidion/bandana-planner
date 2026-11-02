@@ -8,6 +8,7 @@ What's in it so far:
 - **Fabric**: every bolt with yards on the shelf, cost per yard, a low-stock warning, print direction, where you buy it, and notes.
 - **Cut files**: upload your own SVG for each size and strap (Settings › Sizes & mats). Pieces are nested on the mat by their real traced outline, and the mat files you save draw that outline.
 - **Supplies, Suppliers and Restock**: count tags, mailers, elastic and anything else, taken automatically per bandana when a run finishes; keep each supplier's site, lead time and shipping; Restock lists what's low, out, or will run out at your pace before an order could arrive, grouped by supplier, with Mark ordered and It arrived. Fabric shows yards used a week and a run-out forecast, and leftover pieces can be kept as offcuts.
+- **Bows and other products** (Settings › Products): styles with a cut size or cut file, pieces, time, notions and price, plus add-on parts. Runs can include them: they're cut on their own mats, get their own steps, and finish into stock. **Export for Design Space** groups the mats by fabric, with Save per mat or all at once.
 - **Finished stock**: bandanas ready to sell, by size and by run, with counts you can fix by hand.
 - **Settings**: sizes (cut measurements, price, time each), straps, mat and bolt; workflow templates (steps and minutes per bandana, with your real timed pace next to each); free hours per day; timer check-in.
 

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { money, plural } from '../lib/format';
+import { itemName, itemPrice } from '../lib/plan';
 import { adjustStock, stockBySize, useShop } from '../state/store';
 import { BoxIcon } from '../ui/icons';
 import { Button, Card, Chip, Empty, Row, Section, Sheet, Stepper, Swatch, T } from '../ui/kit';
@@ -13,10 +14,13 @@ export function StockScreen({ openRun }: { openRun: (id: string) => void }) {
   const [adj, setAdj] = useState<string | null>(null);
   const by = stockBySize(shop);
   const total = Object.values(by).reduce((a, b) => a + b, 0);
-  const value = Object.entries(by).reduce((a, [k, n]) => a + n * (shop.sizes[k]?.price || 0), 0);
+  const value = Object.entries(by).reduce((a, [k, n]) => a + n * (itemPrice(shop, k) || 0), 0);
   const groups: Record<string, { size: string; n: number }[]> = {};
   shop.stock.forEach(s => (groups[s.run] = groups[s.run] || []).push(s));
-  const sizes = Object.entries(shop.sizes).filter(([k, z]) => z.cw || by[k]);
+  const sizes: [string, { name: string; price: number | null }][] = [
+    ...Object.entries(shop.sizes).filter(([k, z]) => z.cw || by[k]),
+    ...shop.products.flatMap(p => p.variants).filter(v => v.price != null || by[v.id]).map(v => [v.id, { name: v.name, price: v.price }] as [string, { name: string; price: number | null }]),
+  ];
   return (
     <ScrollView contentContainerStyle={{ padding: 32, gap: 24, maxWidth: 980 }}>
       <View style={{ gap: 4 }}>
@@ -36,7 +40,7 @@ export function StockScreen({ openRun }: { openRun: (id: string) => void }) {
       {!sizes.length ? (
         <Empty icon={<BoxIcon color={t.action} size={26} />} title="Nothing in stock yet" body="When you finish a run, its bandanas land here, ready to sell." />
       ) : (
-        <Section title="By size" right={<T s="sub">Click a size to fix its count</T>}>
+        <Section title="Ready to sell" right={<T s="sub">Click a size to fix its count</T>}>
           <Card pad={false} style={{ overflow: 'hidden' }}>
             {sizes.map(([k, z], i) => {
               const n = by[k] || 0;
@@ -67,7 +71,7 @@ export function StockScreen({ openRun }: { openRun: (id: string) => void }) {
                   <Swatch color={f ? f.color : t.sunken} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <T style={{ fontWeight: '600' }}>{rid === 'adj' ? 'Added by hand' : r ? (r.name || 'Untitled run').split(' — ')[0] : 'Older run'}</T>
-                    <T s="sub">{list.map(s => `${s.n} ${shop.sizes[s.size]?.name || s.size}`).join(', ')}</T>
+                    <T s="sub">{list.map(s => `${s.n} ${itemName(shop, s.size)}`).join(', ')}</T>
                   </View>
                   <T style={{ fontWeight: '700', fontVariant: ['tabular-nums'] }}>{n}</T>
                 </Row>
@@ -86,7 +90,7 @@ function AdjustSheet({ size, onClose }: { size: string; onClose: () => void }) {
   const t = useTheme();
   const now = stockBySize(shop)[size] || 0;
   const [n, setN] = useState(now);
-  const z = shop.sizes[size];
+  const z = { name: itemName(shop, size) };
   const save = () => {
     if (n !== now) adjustStock(size, n - now);
     onClose();

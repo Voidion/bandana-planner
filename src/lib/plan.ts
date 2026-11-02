@@ -34,10 +34,9 @@ export function sync(shop: Shop) {
   E.setToday(new Date());
   E.setEngineState({
     ...shop,
-    runs: shop.runs.map(r => ({ ...r, due: rel(r.due), prod: {} })),
+    runs: shop.runs.map(r => ({ ...r, due: rel(r.due), prod: r.prod || {} })),
     sessions: shop.sessions.map(s => ({ ...s, day: rel(s.day) ?? 0 })),
     ledger: [],
-    products: [],
   });
 }
 
@@ -62,7 +61,7 @@ export interface PlanResult {
 }
 
 /** Lays the run out on mats and works out the fabric it needs from the shelf. */
-export function computePlan(shop: Shop, run: Pick<Run, 'qty' | 'body' | 'ties'>): PlanResult {
+export function computePlan(shop: Shop, run: Pick<Run, 'qty' | 'body' | 'ties'> & { prod?: Record<string, number> }): PlanResult {
   sync(shop);
   const qty: Record<string, number> = {};
   const missing: string[] = [];
@@ -71,16 +70,23 @@ export function computePlan(shop: Shop, run: Pick<Run, 'qty' | 'body' | 'ties'>)
     if (sizeReady(shop, k)) qty[k] = n;
     else missing.push(k);
   });
+  const prod: Record<string, number> = {};
+  Object.entries(run.prod || {}).forEach(([k, n]) => {
+    if (n && shop.products.some(p => p.variants.some(v => v.id === k && v.w > 0 && v.l > 0))) prod[k] = n;
+  });
   const count = Object.values(qty).reduce((a, b) => a + b, 0);
-  if (!count) return { cp: null, count: 0, needs: [], missingSizes: missing, tooBig: 0 };
+  const others = Object.values(prod).reduce((a, b) => a + b, 0);
+  if (!count && !others) return { cp: null, count: 0, needs: [], missingSizes: missing, tooBig: 0 };
   const body = shop.fabrics.find(f => f.id === run.body) || null;
   const ties = shop.fabrics.find(f => f.id === run.ties) || null;
-  const cp = E.cutPlan(qty, { body, strap: ties });
-  const n = E.planNeeds(qty, run.body, run.ties);
+  const cp = E.cutPlan(qty, { body, strap: ties, prod });
+  const n = E.planNeeds(qty, run.body, run.ties, prod);
+
   const needs: PlanResult['needs'] = [];
   const add = (f: Fabric | null, role: string, yards: number) =>
     needs.push({ f, role, yards, short: f ? Math.max(0, Math.round((yards - f.yards) * 100) / 100) : 0, learned: n.learned });
-  if (n.same) add(body, 'Body and straps', n.body);
+  if (!count) add(body, 'Fabric', n.body);
+  else if (n.same) add(body, 'Body and straps', n.body);
   else {
     add(body, 'Body', n.body);
     add(ties, 'Straps', n.ties);
@@ -107,7 +113,7 @@ export function matWaste(m: any) {
 }
 
 /* ---------- runs: time and money, straight from the engine ---------- */
-const engineRun = (r: Run) => ({ ...r, due: rel(r.due), prod: {} });
+const engineRun = (r: Run) => ({ ...r, due: rel(r.due), prod: r.prod || {} });
 
 export interface RunNumbers {
   pieces: number;
@@ -139,11 +145,29 @@ export function runNumbers(shop: Shop, r: Run): RunNumbers {
 
 let stepSeq = 0;
 /** Fresh steps for a run from its template, sized to how many bandanas (bigger sizes take longer). */
-export function stepsForRun(shop: Shop, tpl: string, qty: Record<string, number>): Step[] {
+export function stepsForRun(shop: Shop, tpl: string, qty: Record<string, number>, prod?: Record<string, number>): Step[] {
   sync(shop);
-  const any = Object.values(qty).some(n => n > 0);
-  const list = E.stepsFor(tpl, any ? qty : { M: 1 });
-  return list.map(s => ({ id: 'st' + Date.now().toString(36) + (stepSeq++).toString(36), name: s.name, est: any ? s.est : 0, source: 'template', done: false }));
+  const any = Object.values(qty).some(n => n > 0) || Object.values(prod || {}).some(n => n > 0);
+  const list = any ? E.runSteps(tpl, qty, prod || {}) : E.stepsFor(tpl, { M: 1 });
+  return list.map((s: any) => ({ id: 'st' + Date.now().toString(36) + (stepSeq++).toString(36), name: s.name, est: any ? s.est : 0, source: 'template', done: false }));
+}
+
+/** Name of a size or product style */
+export function itemName(shop: Shop, k: string) {
+  if (shop.sizes[k]) return shop.sizes[k].name;
+  for (const p of shop.products) {
+    const v = p.variants.find(x => x.id === k);
+    if (v) return v.name;
+  }
+  return k;
+}
+export function itemPrice(shop: Shop, k: string) {
+  if (shop.sizes[k]) return shop.sizes[k].price;
+  for (const p of shop.products) {
+    const v = p.variants.find(x => x.id === k);
+    if (v) return v.price;
+  }
+  return null;
 }
 
 export function tplMinsFor(shop: Shop, tpl: string, qty: Record<string, number>) {

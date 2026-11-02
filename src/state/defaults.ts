@@ -144,7 +144,7 @@ export function migrate(raw: unknown): Shop {
     suppliers: arr(s.suppliers),
     supplies: arr<any>(s.supplies).map(x => ({ unit: '', qty: 0, low: 0, cost: 0, use: 'none', per: 1, sup: null, url: '', onOrder: 0, ...x })),
     usage: arr(s.usage),
-    products: [],
+    products: arr(s.products),
   };
   // Version 1 kept "where you buy it" as text on each fabric: those become suppliers.
   out.fabrics.forEach(f => {
