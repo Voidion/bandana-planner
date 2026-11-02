@@ -239,6 +239,29 @@ export interface MarketDay {
   last?: { name: string; sale: string; n: number; total: number; day: Day } | null;
 }
 
+export interface CalEvent {
+  id: string;
+  day: Day;
+  title: string;
+  /** market and off take the day's free hours out of run planning */
+  kind: 'market' | 'off' | 'other';
+  days: number;
+  notes: string;
+}
+
+export interface Tool {
+  id: string;
+  name: string;
+  kind: 'blade' | 'mat' | 'machine' | 'other';
+  /** Cuts (blades), mats loaded (mats) or hours sewn (machines) since it was last replaced or serviced */
+  uses: number;
+  /** Replace or service after this many */
+  life: number;
+  since: Day;
+  notes: string;
+  log: { day: Day; text: string }[];
+}
+
 export interface Bundle {
   id: string;
   name: string;
@@ -495,6 +518,9 @@ export interface Shop {
   quotes: Quote[];
   bundles: Bundle[];
   market: MarketDay;
+  cal: CalEvent[];
+  tools: Tool[];
+  goals: { income: number; hours: number };
   usage: UsageLine[];
   products: Product[];
 }

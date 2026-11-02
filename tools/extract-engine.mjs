@@ -14,7 +14,9 @@ const CUT = ['cutPlan', 'grainOf', 'strapOf', 'sizeYd', 'sizeFab', 'planNeeds', 
 const RUNS = ['pieces', 'doneN', 'runMins', 'leftMins', 'atList', 'mats', 'rate', 'runProfit', 'avgEach', 'effRate', 'unitMins', 'unitMat', 'unitCost', 'pcsEq', 'tplMins', 'stepsFor', 'runSteps', 'tplOf', 'defTpl', 'tplTotal', 'paceStats', 'fabCostOf', 'overheadEach', 'feeEach', 'laborF', 'priceFor', 'marginOf', 'IT', 'tEl', 'isStale', 'isSewStep'];
 /* Selling: sale money, fees, quote totals, owed */
 const SELL = ['feeFor', 'matFor', 'eTotal', 'eOwed', 'eNet', 'eProfit', 'eUnits', 'sums', 'perList', 'profitEach', 'qtotals', 'monthlyBills', 'unitCost'];
-const ROOTS = [...CUT, ...RUNS, ...SELL];
+/* Planning and numbers */
+const PLAN = ['scheduleWork', 'lateRuns', 'freeMins', 'monthIncome', 'repAgg', 'perMonths'];
+const ROOTS = [...CUT, ...RUNS, ...SELL, ...PLAN];
 const EXTERNAL = new Set(['S', 'uid', 'render', 'toast', 'log', 'PHOTOS', 'freshState', 'scrClass', 'W', 'stackOf', 'RC', 'sampleLedger', 'sampleEquip', 'sampleCustomers', 'seedSessions', 'seedUsage', 'newPlan', 'run', 'fab', 'uid', 'TODAY', 'dateOf', 'bench', 'LED', 'esc']);
 
 const html = fs.readFileSync(proto, 'utf8');
@@ -43,7 +45,8 @@ const known = new Set([...need].flatMap(i => decls[i].names));
 const free = new Set();
 for (const i of need) for (const r of decls[i].refs) if (byName[r] != null && !known.has(r)) free.add(r);
 if (free.size) console.log('Left to the app (externals referenced):', [...free].join(', '));
-const body = [...need].sort((a, b) => a - b).map(i => decls[i].code).join('\n');
+/* Adding 24h to midnight lands on the wrong day when clocks change (DST); count calendar days instead. */
+const body = [...need].sort((a, b) => a - b).map(i => decls[i].code).join('\n').replace(/new Date\(TODAY\.getTime\(\)\+([\w.]+)\*DAY\)/g, 'dateOf($1)');
 const out = `/* eslint-disable */
 // @ts-nocheck
 /* Cut-plan engine, extracted unchanged from the Bandana Planner prototype (bandana-planner.html).
@@ -58,8 +61,9 @@ let TODAY=(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),
 export function setToday(d){TODAY=new Date(d.getFullYear(),d.getMonth(),d.getDate())}
 const dateOf=d=>new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+(+d||0));
 const LED=()=>(S&&S.ledger)||[];
+const bench=()=>((S&&S.runs)||[]).filter(r=>r.status!=='done');
 ${body}
-export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,${[...new Set([...RUNS, ...SELL])].join(',')}};
+export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,${[...new Set([...RUNS, ...SELL, ...PLAN])].join(',')}};
 `;
 fs.writeFileSync(path.join(here, '../src/engine/engine.js'), out);
 console.log(`engine.js: ${need.size} pieces from the prototype`);

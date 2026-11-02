@@ -4,6 +4,10 @@ The Windows app for fabric inventory and cut plans, built with React Native for 
 
 What's in it so far:
 
+- **Today**: what needs you (late runs, orders due, overdue payments, restock, tools due, quotes ending), this week's booked time, the month's income against your goal, runs in progress with their finish dates, and recent activity.
+- **Schedule**: four weeks of free hours with the runs fitted in, earliest due first, due dates and finish dates on the calendar, and markets or days off that take a day's hours out.
+- **Reports**: trends by month, what sells best, your real time a bandana; sales and profit by channel, size, customer and run, before and after bills; a tax summary; and goals.
+- **Maintenance and Activity**: blades and mats count mats cut, machines count sewing hours; a full log of what you've done.
 - **Runs**: plan a batch (sizes, fabric, due date, workflow template). The app lays every piece out on Cricut Venture mats (the same planner as the prototype, so layouts are identical), shows the yards needed against the shelf, works out materials, time and profit, and saves one SVG per mat for Design Space. **Record the cut** takes what you really used off the shelf (Undo puts it back). Work through the steps with tick boxes and a timer (it keeps running if you close the app, and asks if it's still going after a while), enter times by hand, log defects, then **Finish run** to move the bandanas into stock and see the review: each step against its plan, hours, fabric and profit.
 - **Fabric**: every bolt with yards on the shelf, cost per yard, a low-stock warning, print direction, where you buy it, and notes.
 - **Cut files**: upload your own SVG for each size and strap (Settings › Sizes & mats). Pieces are nested on the mat by their real traced outline, and the mat files you save draw that outline.

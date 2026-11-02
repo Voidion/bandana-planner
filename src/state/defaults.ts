@@ -85,6 +85,12 @@ export function emptyShop(): Shop {
     bundles: [],
     market: { open: false, name: '', booth: 0, goal: 30, pay: 'Card', tally: [], openedAt: null, last: null },
     usage: [],
+    cal: [],
+    tools: [
+      { id: 'blade', name: 'Rotary blade', kind: 'blade', uses: 0, life: 400, since: new Date().toISOString().slice(0, 10), notes: 'Counted in mats cut', log: [] },
+      { id: 'mat', name: 'Cutting mat', kind: 'mat', uses: 0, life: 250, since: new Date().toISOString().slice(0, 10), notes: 'Counted in mats loaded', log: [] },
+    ],
+    goals: { income: 1000, hours: 40 },
     products: [],
   };
 }
@@ -158,6 +164,9 @@ export function migrate(raw: unknown): Shop {
     sales: arr(s.sales),
     orders: arr(s.orders),
     quotes: arr(s.quotes),
+    cal: arr(s.cal),
+    tools: Array.isArray(s.tools) ? s.tools : base.tools,
+    goals: { ...base.goals, ...(s.goals || {}) },
     market: { ...base.market, ...(s.market && Array.isArray(s.market.tally) ? s.market : {}) },
     bundles: arr(s.bundles),
     products: arr(s.products),

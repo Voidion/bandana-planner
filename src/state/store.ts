@@ -274,6 +274,8 @@ export function cutRun(id: string, used: number[]) {
       status: x.status === 'draft' ? 'active' : x.status,
       steps: x.steps.map(st => (cs && st.id === cs.id ? { ...st, done: true } : st)),
     }));
+    const mats = computePlan(s, r0).cp?.mats.length || 0;
+    if (mats) next = { ...next, tools: next.tools.map(t => (t.kind === 'blade' || t.kind === 'mat' ? { ...t, uses: t.uses + mats } : t)) };
     return withLog(next, 'cut ' + short(r), fabUse.map(u => `${u.used} yd ${u.name}`).join(', '));
   });
 }
@@ -482,6 +484,8 @@ export function finishRun(id: string) {
       .map(x => ({ id: x.id, name: x.name, unit: x.unit, n: round2((+x.per || 1) * (x.use === 'item' ? nItems : n)) }));
     const take = Object.fromEntries(supUse.map(u => [u.id, u.n]));
     next = mapRun(next, id, x => ({ ...x, supUse }));
+    const sewHours = r.steps.filter(st => /sew|stitch|hem|serg|bind/i.test(st.name)).reduce((a, st) => a + (st.actual || st.est || 0), 0) / 60;
+    if (sewHours > 0) next = { ...next, tools: next.tools.map(t => (t.kind === 'machine' ? { ...t, uses: round2(t.uses + sewHours) } : t)) };
     return withLog(
       { ...next, stock: [...next.stock, ...add], supplies: next.supplies.map(x => (take[x.id] ? { ...x, qty: Math.max(0, round2(x.qty - take[x.id])) } : x)) },
       'finished ' + short(r),

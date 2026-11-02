@@ -38,6 +38,8 @@ export function sync(shop: Shop) {
     sessions: shop.sessions.map(s => ({ ...s, day: rel(s.day) ?? 0 })),
     ledger: shop.sales.map(e => ({ ...e, d: rel(e.day) ?? 0, pays: e.pays.map(p => ({ ...p, d: rel(p.day) ?? 0 })), due: e.due ? rel(e.due) : undefined })),
     quotes: [],
+    events: [],
+    cal: shop.cal.map(e => ({ ...e, d: rel(e.day) ?? 0, allDay: true, off: e.kind !== 'other' })),
     cfg: { ...shop.cfg, shopName: shop.shopName },
   });
 }
@@ -212,4 +214,15 @@ export function unitMaterials(shop: Shop, k: string) {
 export function quoteTotals(shop: Shop, q: any) {
   sync(shop);
   return E.qtotals(q);
+}
+
+/** Fits the runs on the bench into your free hours, earliest due first (the prototype's schedule). */
+export function schedule(shop: Shop, days = 56) {
+  sync(shop);
+  const sc = E.scheduleWork(days);
+  return { ...sc, late: E.lateRuns(sc).map((r: any) => r.id as string) };
+}
+export function reportRows(shop: Shop, list: any[], key: 'size' | 'ch' | 'fabric') {
+  sync(shop);
+  return E.repAgg(list, key === 'fabric' ? 'fname' : key);
 }

@@ -13,6 +13,7 @@ let TODAY=(()=>{const n=new Date();return new Date(n.getFullYear(),n.getMonth(),
 export function setToday(d){TODAY=new Date(d.getFullYear(),d.getMonth(),d.getDate())}
 const dateOf=d=>new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+(+d||0));
 const LED=()=>(S&&S.ledger)||[];
+const bench=()=>((S&&S.runs)||[]).filter(r=>r.status!=='done');
 const DAY=864e5;
 const money=n=>(n<0?'−':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const MET=()=>false;
@@ -61,6 +62,7 @@ const unitMat=k=>{const z=S.sizes[k];if(!z){const v=pv(k);return v?vMat(v):null}
 const unitMins=k=>{const z=S.sizes[k];if(!z){const v=pv(k);return v?vMins(v):null}return z.mins==null?null:z.mins+(+strapOf(k).mins||0)};
 const NOITEM={name:'Removed item',price:0};
 function IT(k){if(S.sizes[k])return S.sizes[k];const v=pv(k);if(!v)return NOITEM;const p=pvp(v);return{name:v.name,price:+v.price||0,mins:vMins(v),mat:vMat(v),isVar:true,pid:v.pid,product:p?p.name:''}}
+const isVarKey=k=>!S.sizes[k]&&!!pv(k);
 function monthlyBills(){return S.bills.reduce((a,b)=>a+(b.basis==='year'?(+b.amt||0)/12:(+b.amt||0)),0)}
 const overheadEach=()=>S.cfg.piecesPerMonth>0?monthlyBills()/S.cfg.piecesPerMonth:0;
 const feeEach=p=>S.cfg.fees.on?p*S.cfg.fees.rate/100+S.cfg.fees.flat/Math.max(1,S.cfg.fees.perOrder):0;
@@ -78,6 +80,17 @@ const memo=(k,f)=>{if(!RC)return f();if(!(k in RC))RC[k]=f();return RC[k]};
 const leftMins=r=>r.steps.filter(x=>!x.done).reduce((a,x)=>a+x.est,0);
 const tEl=t=>t?(t.acc||0)+(t.paused?0:Date.now()-t.start):0;
 const isStale=t=>!!t&&tEl(t)/6e4>S.cfg.staleMins;
+const freeMins=d=>offDays().has(d)?0:(+S.cfg.hours[dateOf(d).getDay()]||0)*60;
+function offDays(){return memo('offDays',()=>{const s=new Set();(S.events||[]).forEach(e=>{for(let k=0;k<(e.days||1);k++)s.add(e.d+k)});(S.cal||[]).forEach(e=>{if(e.fresh)return;const off=e.off!=null?e.off:(e.kind==='market');if(!off||!e.allDay&&e.kind!=='market')return;calOcc(e).forEach(d=>{for(let k=0;k<(e.days||1);k++)s.add(d+k)})});return s})}
+function calOcc(e){const step=e.rep==='w'?7:e.rep==='2w'?14:0,ds=[e.d];if(step)for(let d=e.d+step;d<=180;d+=step)ds.push(d);else if(e.rep==='m'){for(let n=1;n<7;n++){const b=dateOf(e.d),x=new Date(b.getFullYear(),b.getMonth()+n,b.getDate());ds.push(Math.round((x-dateOf(0))/864e5))}}return ds}
+function scheduleWork(days=56){
+ const cap=[],used=[];for(let d=0;d<days;d++){cap.push(freeMins(d));used.push(0)}
+ const queue=bench().filter(r=>leftMins(r)>0).map(r=>({r,left:leftMins(r)})).sort((a,b)=>(a.r.due??999)-(b.r.due??999));
+ const finish={};let d=0;
+ for(const q of queue){while(q.left>0&&d<days){const room=cap[d]-used[d];if(room<=0){d++;continue}const t=Math.min(room,q.left);used[d]+=t;q.left-=t;if(q.left<=0)finish[q.r.id]=d}if(q.left>0)finish[q.r.id]=null}
+ return{cap,used,finish};
+}
+const lateRuns=sc=>bench().filter(r=>r.due!=null&&leftMins(r)>0&&(sc.finish[r.id]==null||sc.finish[r.id]>r.due));
 const VENTURE_MATS=[{id:'v1224',name:'24 × 12" mat',mw:24,ml:12,w:23.5,l:11.5,sub:'Loads sideways'},{id:'v2428',name:'24 × 28" mat',mw:24,ml:28,w:23.5,l:27.5,sub:'Full size'}];
 const ventMat=()=>VENTURE_MATS.find(m=>m.id===S.cfg.cut.mat)||VENTURE_MATS[1];
 function maxRects(W,H,items,gap,free0){
@@ -373,7 +386,7 @@ function paceStats(){
  const ratio=s=>per(s)/stepMed[s.step];
  const byHour={};ss.forEach(s=>{(byHour[s.hour]=byHour[s.hour]||[]).push(ratio(s))});
  let fast=null;Object.entries(byHour).forEach(([h,v])=>{if(v.length<3)return;const m=v.reduce((a,b)=>a+b,0)/v.length;if(!fast||m<fast.m)fast={h:+h,m,n:v.length}});
- const byDay=[[],[],[],[],[],[],[]];ss.forEach(s=>byDay[new Date(TODAY.getTime()+s.day*DAY).getDay()].push(ratio(s)));
+ const byDay=[[],[],[],[],[],[],[]];ss.forEach(s=>byDay[dateOf(s.day).getDay()].push(ratio(s)));
  const days=byDay.map(v=>v.length>=2?v.reduce((a,b)=>a+b,0)/v.length:null);
  return{n:ss.length,stepMed,tpl,perShop:perB(null),you:perB('You'),sam:perB('Sam'),qYou:quick('You'),qSam:quick('Sam'),fast,days};
 }
@@ -416,8 +429,12 @@ const eDate=e=>dateOf(e.d);
 function feeFor(ch,amt){const f=S.cfg.fees;if(ch==='Shopify'||ch==='Direct')return f.on?+(amt*f.rate/100+f.flat).toFixed(2):0;if(ch==='Market')return f.on?+(amt*.65*f.rate/100).toFixed(2):0;return 0}
 function matFor(items){return +Object.entries(items||{}).reduce((a,[k,n])=>a+n*(unitMat(k)||0),0).toFixed(2)}
 function perList(per){const Y=TODAY.getFullYear(),cm=TODAY.getMonth();return LED().filter(e=>{const t=eDate(e);if(t.getFullYear()!==Y||e.d>0)return false;if(per==='year')return true;if(per==='3m')return t.getMonth()>=cm-2;if(/^m\d+$/.test(per))return t.getMonth()===+per.slice(1);if(/^Q[1-4]$/.test(per))return Math.floor(t.getMonth()/3)===+per[1]-1;return true})}
+function perMonths(per){const cm=TODAY.getMonth();if(per==='year')return cm+1;if(per==='3m')return 3;if(/^m\d+$/.test(per))return 1;if(/^Q[1-4]$/.test(per)){const q=+per[1]-1;return Math.max(0,Math.min(3,cm-q*3+1))}return 1}
 function sums(list){return list.reduce((a,e)=>{a.sales+=eNet(e);a.profit+=eProfit(e);a.fees+=e.fees||0;a.mat+=e.mat||0;a.tax+=e.tax||0;a.ship+=e.ship||0;a.refund+=e.refund||0;a.gross+=e.sub;a.units+=eUnits(e);a.labor+=eLabor(e);a.costs+=(e.costs||0);a.n++;return a},{costs:0,labor:0,sales:0,profit:0,fees:0,mat:0,tax:0,ship:0,refund:0,gross:0,units:0,n:0})}
+function repAgg(list,key){const M={};list.forEach(e=>{const parts=key==='size'?Object.entries(e.items||{}).filter(([,q])=>q).map(([k,q])=>[k,(IT(k).price||18)*q,q]):key==='prod'?Object.entries(e.items||{}).filter(([,q])=>q).map(([k,q])=>[isVarKey(k)?(IT(k).product||'Other'):'Bandanas',(IT(k).price||18)*q,q]):[[key==='ch'?e.ch:(e.fname||'Other'),1,eUnits(e)]];const tw=parts.reduce((a,x)=>a+x[1],0)||1;
+  parts.forEach(([k,w,q])=>{const f=w/tw,m=M[k]=M[k]||{k,sales:0,profit:0,units:0};m.sales+=eNet(e)*f;m.profit+=eProfit(e)*f;m.units+=q})});return Object.values(M).sort((a,b)=>b.sales-a.sales)}
 function profitEach(){const s=memo('profitEachYr',()=>sums(perList('year')));return s.units?s.profit/s.units:0}
+function monthIncome(){const Y=TODAY.getFullYear(),m=TODAY.getMonth();return LED().filter(e=>{const t=eDate(e);return t.getFullYear()===Y&&t.getMonth()===m&&e.d<=0}).reduce((a,e)=>a+eNet(e),0)}
 const isSewStep=n=>/sew|stitch|hem|serg|bind/i.test(n||'');
 const rnT=r=>{const n=String(r.name||''),i=n.indexOf(' — ');return i<0?n:n.slice(0,i)},rnP=r=>{const n=String(r.name||''),i=n.indexOf(' — '),t=i<0?'':n.slice(i+3);return t.charAt(0).toUpperCase()+t.slice(1)};
-export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,pieces,doneN,runMins,leftMins,atList,mats,rate,runProfit,avgEach,effRate,unitMins,unitMat,unitCost,pcsEq,tplMins,stepsFor,runSteps,tplOf,defTpl,tplTotal,paceStats,fabCostOf,overheadEach,feeEach,laborF,priceFor,marginOf,IT,tEl,isStale,isSewStep,feeFor,matFor,eTotal,eOwed,eNet,eProfit,eUnits,sums,perList,profitEach,qtotals,monthlyBills};
+export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,pieces,doneN,runMins,leftMins,atList,mats,rate,runProfit,avgEach,effRate,unitMins,unitMat,unitCost,pcsEq,tplMins,stepsFor,runSteps,tplOf,defTpl,tplTotal,paceStats,fabCostOf,overheadEach,feeEach,laborF,priceFor,marginOf,IT,tEl,isStale,isSewStep,feeFor,matFor,eTotal,eOwed,eNet,eProfit,eUnits,sums,perList,profitEach,qtotals,monthlyBills,scheduleWork,lateRuns,freeMins,monthIncome,repAgg,perMonths};

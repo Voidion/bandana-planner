@@ -67,3 +67,10 @@ export function perList(per: string): any[];
 export function profitEach(): number;
 export function qtotals(q: any): any;
 export function monthlyBills(): number;
+/* Planning and numbers */
+export function scheduleWork(days?: number): { cap: number[]; used: number[]; finish: Record<string, number | null> };
+export function lateRuns(sc: any): any[];
+export function freeMins(d: number): number;
+export function monthIncome(): number;
+export function repAgg(list: any[], key: string): { k: string; sales: number; profit: number; units: number }[];
+export function perMonths(per: string): number;

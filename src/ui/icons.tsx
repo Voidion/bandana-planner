@@ -175,3 +175,6 @@ export const TruckIcon = I(
     <Circle cx="17.5" cy="17.5" r="1.8" />
   </>,
 );
+export const HomeIcon = I(<Path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" />);
+export const ChartIcon = I(<Path d="M4.5 19.5h15M7 16v-4M11 16V8M15 16v-6M19 16V5" />);
+export const WrenchIcon = I(<Path d="M14.7 6.3a4 4 0 0 0-5.2 5.2L4.5 16.5a1.8 1.8 0 0 0 2.5 2.5l5-5a4 4 0 0 0 5.2-5.2l-2.4 2.4-2.1-.4-.4-2.1z" />);

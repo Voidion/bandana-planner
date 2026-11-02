@@ -13,20 +13,22 @@ import { RestockScreen, SuppliersScreen, SuppliesScreen } from './src/screens/Sh
 import { CustomersScreen, OrdersScreen, SalesScreen } from './src/screens/SellingScreens';
 import { QuotesScreen } from './src/screens/QuotesScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
+import { ActivityScreen, MaintenanceScreen, ReportsScreen, ScheduleScreen, TodayScreen } from './src/screens/NumbersScreens';
 import { freeStock, isLate, orderStage, saleOwed } from './src/state/selling';
 import { restockList } from './src/state/shelf';
+import { toolDue } from './src/state/planning';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
-import { BatchesIcon, BoxIcon, CartIcon, EditIcon, TruckIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
+import { BatchesIcon, BoxIcon, CalIcon, CartIcon, ChartIcon, ClockIcon, EditIcon, HomeIcon, TruckIcon, WrenchIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
 import { Button, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
 
-type Route = 'runs' | 'orders' | 'quotes' | 'market' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
+type Route = 'today' | 'schedule' | 'reports' | 'maintenance' | 'activity' | 'runs' | 'orders' | 'quotes' | 'market' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
 
 export default function App() {
   const t = useTheme();
   const [ready, setReady] = useState<'loading' | 'ok' | 'error'>('loading');
-  const [route, setRoute] = useState<Route>('runs');
+  const [route, setRoute] = useState<Route>('today');
   const [runSel, setRunSel] = useState<string | null>(null);
   const [setTab, setSetTab] = useState<SettingsTab>('sizes');
   const [fabSel, setFabSel] = useState<string | null>(null);
@@ -34,6 +36,13 @@ export default function App() {
   const [ordSel, setOrdSel] = useState<string | null>(null);
   const [custSel, setCustSel] = useState<string | null>(null);
   const [quoteSel, setQuoteSel] = useState<string | null>(null);
+  const go = (r: string, id?: string) => {
+    if (r === 'runs' && id) return openRun(id);
+    if (r === 'orders' && id) return openOrder(id);
+    if (r === 'quotes' && id) setQuoteSel(id);
+    if (r === 'settings' && id) setSetTab(id as SettingsTab);
+    setRoute(r as Route);
+  };
   const openOrder = (id: string) => {
     setOrdSel(id);
     setRoute('orders');
@@ -80,7 +89,17 @@ export default function App() {
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         <StaleTimer openRun={openRun} />
         <View style={{ flex: 1 }}>
-          {route === 'fabric' ? (
+          {route === 'today' ? (
+            <TodayScreen go={go} />
+          ) : route === 'schedule' ? (
+            <ScheduleScreen go={go} />
+          ) : route === 'reports' ? (
+            <ReportsScreen />
+          ) : route === 'maintenance' ? (
+            <MaintenanceScreen />
+          ) : route === 'activity' ? (
+            <ActivityScreen />
+          ) : route === 'fabric' ? (
             <FabricScreen sel={fabSel} setSel={setFabSel} onPlanWith={id => openRun(planRun({ body: id, ties: id }))} openRun={openRun} />
           ) : route === 'runs' ? (
             <RunsScreen sel={runSel} setSel={setRunSel} goSetup={() => { setSetTab('sizes'); setRoute('settings'); }} />
@@ -169,6 +188,8 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
         <T style={{ fontWeight: '700', fontSize: 16 }}>Bandana Planner</T>
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 2 }}>
+      {item('today', 'Today', c => <HomeIcon color={c} />)}
+      {item('schedule', 'Schedule', c => <CalIcon color={c} />)}
       {item('runs', 'Runs', c => <ScissorsIcon color={c} />, active ? String(active) : undefined)}
       {item('orders', 'Orders', c => <CartIcon color={c} />, openOrders ? String(openOrders) : undefined)}
       {item('quotes', 'Quotes', c => <EditIcon color={c} />, shop.quotes.filter(q => q.status === 'sent').length ? String(shop.quotes.filter(q => q.status === 'sent').length) : undefined)}
@@ -181,6 +202,10 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
       {item('restock', 'Restock', c => <RestockIcon color={c} />, need ? String(need) : undefined, true)}
       {item('suppliers', 'Suppliers', c => <TruckIcon color={c} />)}
       {item('stock', 'Finished stock', c => <BoxIcon color={c} />, stock ? String(stock) : undefined)}
+      <View style={{ height: 10 }} />
+      {item('reports', 'Reports', c => <ChartIcon color={c} />)}
+      {item('maintenance', 'Maintenance', c => <WrenchIcon color={c} />, shop.tools.filter(toolDue).length ? 'Due' : undefined, true)}
+      {item('activity', 'Activity', c => <ClockIcon color={c} />)}
       {item('settings', 'Settings', c => <GearIcon color={c} />)}
       </ScrollView>
       <TimerCard onOpen={openRun} />
