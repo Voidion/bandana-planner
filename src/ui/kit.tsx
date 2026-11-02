@@ -91,17 +91,88 @@ export function Section({ title, right, children, style }: { title: string; righ
   );
 }
 
-export function Row({ onPress, selected, children, style, first }: { onPress?: () => void; selected?: boolean; children: React.ReactNode; style?: StyleProp<ViewStyle>; first?: boolean }) {
+export function Row({ onPress, selected, children, style, first, menu }: { onPress?: () => void; selected?: boolean; children: React.ReactNode; style?: StyleProp<ViewStyle>; first?: boolean; menu?: MenuItem[] }) {
   const t = useTheme();
   const [hover, setHover] = useState(false);
+  const ctx = useContextMenu(menu);
   const body = (
     <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 11, minHeight: 52, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth, borderTopColor: t.line }, style]}>{children}</View>
   );
-  if (!onPress) return body;
+  if (!onPress) return menu ? <View {...ctx}>{body}</View> : body;
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
+    <Pressable {...ctx} accessibilityRole="button" onPress={() => !ctx.wasRight() && onPress()} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
       style={{ backgroundColor: selected ? t.tint2 : hover ? (t.dark ? '#2A2A2F' : '#F7F7F8') : 'transparent' }}>
       {body}
+    </Pressable>
+  );
+}
+
+/* ---------- right-click menus ---------- */
+export type MenuItem = { label: string; onPress: () => void; danger?: boolean } | null;
+type MenuState = { x: number; y: number; items: Exclude<MenuItem, null>[] } | null;
+let menuState: MenuState = null;
+const menuSubs = new Set<() => void>();
+const setMenu = (m: MenuState) => {
+  menuState = m;
+  menuSubs.forEach(f => f());
+};
+export const closeMenu = () => setMenu(null);
+export const menuOpen = () => !!menuState;
+
+/** Props for a view that opens a menu on right-click (Windows sends which button was pressed with each pointer event). */
+export function useContextMenu(items?: MenuItem[]) {
+  const right = React.useRef(0);
+  const list = (items || []).filter(Boolean) as Exclude<MenuItem, null>[];
+  const open = (e: any) => {
+    const n = e?.nativeEvent || {};
+    setMenu({ x: n.pageX ?? n.clientX ?? 0, y: n.pageY ?? n.clientY ?? 0, items: list });
+  };
+  if (!list.length) return { wasRight: () => false } as any;
+  return {
+    onPointerDown: (e: any) => {
+      const n = e?.nativeEvent || {};
+      if (n.isRightButton || n.button === 2) {
+        right.current = Date.now();
+        open(e);
+      }
+    },
+    // the browser preview
+    onContextMenu: (e: any) => {
+      e?.preventDefault?.();
+      right.current = Date.now();
+      open(e);
+    },
+    wasRight: () => Date.now() - right.current < 600,
+  } as any;
+}
+
+export function ContextMenuHost() {
+  const t = useTheme();
+  const m = useSyncExternalStore(f => (menuSubs.add(f), () => menuSubs.delete(f)), () => menuState);
+  const [size, setSize] = useState({ w: 2000, h: 2000 });
+  if (!m) return null;
+  const w = 220,
+    h = m.items.length * 36 + 12;
+  const left = Math.max(8, Math.min(m.x, size.w - w - 8));
+  const top = Math.max(8, Math.min(m.y, size.h - h - 8));
+  return (
+    <View style={StyleSheet.absoluteFill} onLayout={e => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
+      <Pressable accessibilityLabel="Close menu" onPress={closeMenu} onPointerDown={(e: any) => (e?.nativeEvent?.isRightButton || e?.nativeEvent?.button === 2) && closeMenu()} style={StyleSheet.absoluteFill} />
+      <View accessibilityRole="menu" style={{ position: 'absolute', left, top, width: w, backgroundColor: t.surface, borderRadius: 10, paddingVertical: 6, borderWidth: 1, borderColor: t.line2, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 }, elevation: 8 }}>
+        {m.items.map((it, i) => (
+          <MenuRow key={i} it={it} />
+        ))}
+      </View>
+    </View>
+  );
+}
+function MenuRow({ it }: { it: Exclude<MenuItem, null> }) {
+  const t = useTheme();
+  const [hover, setHover] = useState(false);
+  return (
+    <Pressable accessibilityRole="menuitem" onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)} onPress={() => { closeMenu(); it.onPress(); }}
+      style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 14, marginHorizontal: 6, borderRadius: 6, backgroundColor: hover ? (it.danger ? t.dangerTint : t.tint2) : 'transparent' }}>
+      <Text style={{ fontSize: F.f14, color: it.danger ? t.danger : t.text }}>{it.label}</Text>
     </Pressable>
   );
 }

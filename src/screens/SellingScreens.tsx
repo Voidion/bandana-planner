@@ -211,7 +211,12 @@ export function SalesScreen({ autoRecord }: { autoRecord?: boolean }) {
             const c = shop.customers.find(x => x.id === e.cust);
             const ow = saleOwed(e);
             return (
-              <Row key={e.id} first={i === 0}>
+              <Row key={e.id} first={i === 0}
+                menu={[
+                  ow > 0 ? { label: 'Record a payment', onPress: () => setPayFor(e) } : null,
+                  ow > 0 ? { label: `Paid in full (${money(ow)})`, onPress: () => recordPayment(e.id, ow) } : null,
+                  { label: 'Delete sale', danger: true, onPress: () => { undoSale(e.id); showSnack('Sale deleted. Its bandanas went back into stock'); } },
+                ]}>
                 <View style={{ width: 70 }}><T s="sub">{dayLabel(e.day, { month: 'short', day: 'numeric' })}</T></View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <T style={{ fontWeight: '600' }} numberOfLines={1}>{c ? c.name : e.what}{e.refund ? ' (refunded)' : ''}</T>
@@ -260,7 +265,14 @@ export function OrdersScreen({ sel, setSel, openRun }: { sel: string | null; set
                   const c = shop.customers.find(x => x.id === o.cust);
                   const d = rel(o.due);
                   return (
-                    <Row key={o.id} first={i === 0} selected={cur?.id === o.id} onPress={() => setSel(o.id)}>
+                    <Row key={o.id} first={i === 0} selected={cur?.id === o.id} onPress={() => setSel(o.id)}
+                      menu={[
+                        { label: 'Open', onPress: () => setSel(o.id) },
+                        st === 'plan' && orderCount(o) ? { label: 'Plan a run for it', onPress: () => { const id = planOrder(o.id); if (id) openRun(id); } } : null,
+                        st === 'plan' && canFill(shop, o) ? { label: 'Fill from stock', onPress: () => { if (fillFromStock(o.id)) showSnack('Set aside from stock', () => unfill(o.id)); } } : null,
+                        st === 'ready' ? { label: 'Mark delivered (paid)', onPress: () => { const id = deliverOrder(o.id); if (id) showSnack('Delivered. Sale recorded', () => undoSale(id)); } } : null,
+                        { label: 'Delete order', danger: true, onPress: () => { const i2 = shop.orders.findIndex(x => x.id === o.id); deleteOrder(o.id); showSnack('Order deleted', () => restoreOrder(o, i2)); } },
+                      ]}>
                       <View style={{ flex: 1, gap: 2 }}>
                         <T style={{ fontWeight: '600' }} numberOfLines={1}>{o.title || (c ? c.name : 'New order')}</T>
                         <T s="sub" numberOfLines={1}>{orderLabel(shop, o) || 'Nothing added yet'}</T>
@@ -398,7 +410,13 @@ export function CustomersScreen({ sel, setSel, openOrder }: { sel: string | null
         {!shop.customers.length ? <Empty icon={<StoreIcon color={t.action} size={26} />} title="Add your first customer" body="People, shops and consignment partners, with their dogs’ neck sizes and the size each one wears." action={<Button title="Add customer" onPress={add} />} /> : (
           <Card pad={false} style={{ overflow: 'hidden' }}>
             {list.map((c, i) => (
-              <Row key={c.id} first={i === 0} selected={cur?.id === c.id} onPress={() => setSel(c.id)}>
+              <Row key={c.id} first={i === 0} selected={cur?.id === c.id} onPress={() => setSel(c.id)}
+                menu={[
+                  { label: 'Open', onPress: () => setSel(c.id) },
+                  { label: 'New order for them', onPress: () => openOrder(addOrder({ cust: c.id })) },
+                  c.email ? { label: 'Email', onPress: () => Linking.openURL('mailto:' + c.email).catch(() => {}) } : null,
+                  { label: 'Delete customer', danger: true, onPress: () => { const i2 = shop.customers.findIndex(x => x.id === c.id); deleteCustomer(c.id); showSnack(`${c.name} deleted`, () => restoreCustomer(c, i2)); } },
+                ]}>
                 <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: t.tint, alignItems: 'center', justifyContent: 'center' }}><T style={{ fontWeight: '700' }} color={t.onTint}>{(c.name[0] || '?').toUpperCase()}</T></View>
                 <View style={{ flex: 1, gap: 2 }}>
                   <T style={{ fontWeight: '600' }} numberOfLines={1}>{c.name}</T>

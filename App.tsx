@@ -23,7 +23,7 @@ import { purgeOld } from './src/state/photos';
 import { sendReminders } from './src/state/reminders';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
 import { PhotoIcon, PlusIcon, SearchIcon, BatchesIcon, BoxIcon, CalIcon, CartIcon, ChartIcon, ClockIcon, EditIcon, HomeIcon, TruckIcon, WrenchIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
-import { Button, showSnack, SnackBar, T } from './src/ui/kit';
+import { Button, closeMenu, ContextMenuHost, menuOpen, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
 
@@ -104,7 +104,7 @@ export default function App() {
   if (ready === 'loading') return <View style={{ flex: 1, backgroundColor: t.bg }} />;
 
   const keys = (e: any) => {
-    const used = handleKey(e, { search: () => setOverlay('search'), newMenu: () => setOverlay('new'), go, close: () => (overlay ? (setOverlay(null), true) : false) });
+    const used = handleKey(e, { search: () => setOverlay('search'), newMenu: () => setOverlay('new'), go, close: () => (menuOpen() ? (closeMenu(), true) : overlay ? (setOverlay(null), true) : false) });
     if (used && e?.preventDefault) e.preventDefault();
   };
   const rootKeys: any = { onKeyDownCapture: keys };
@@ -156,6 +156,7 @@ export default function App() {
       </View>
       {overlay === 'search' ? <SearchSheet onClose={() => setOverlay(null)} go={go} /> : null}
       {overlay === 'new' ? <NewMenu onClose={() => setOverlay(null)} go={go} /> : null}
+      <ContextMenuHost />
       <SnackBar />
     </View>
   );

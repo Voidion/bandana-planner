@@ -43,7 +43,13 @@ export function RunsScreen({ sel, setSel, goSetup }: { sel: string | null; setSe
     const d = rel(r.due);
     const dn = r.steps.filter(s => s.done).length;
     return (
-      <Row key={r.id} first={i === 0} selected={cur?.id === r.id} onPress={() => setSel(r.id)}>
+      <Row key={r.id} first={i === 0} selected={cur?.id === r.id} onPress={() => setSel(r.id)}
+        menu={[
+          { label: 'Open', onPress: () => setSel(r.id) },
+          r.status === 'draft' ? { label: 'Start this run', onPress: () => startRun(r.id) } : null,
+          { label: 'Plan this again', onPress: () => { const id = planAgain(r.id); if (id) setSel(id); } },
+          { label: 'Delete run', danger: true, onPress: () => { const i2 = shop.runs.findIndex(x => x.id === r.id); deleteRun(r.id); showSnack(`${shortName(r)} deleted`, () => restoreRun(r, i2)); } },
+        ]}>
         <Swatch color={body ? body.color : t.sunken} />
         <View style={{ flex: 1, gap: 2 }}>
           <T style={{ fontWeight: '600' }} numberOfLines={1}>{shortName(r)}</T>

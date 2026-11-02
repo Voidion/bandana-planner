@@ -4,10 +4,10 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { clock, inch, mins, money, pct, plural, yd } from '../../lib/format';
 import { computePlan, cutFiles, MATS, matWaste, runNumbers, timerMs } from '../../lib/plan';
 import { onDevice, revealFile, saveCutFile } from '../../state/storage';
-import { pauseTimer, startTimer, stopTimer, tickStep, useShop } from '../../state/store';
+import { moveStep, pauseTimer, removeStep, restoreStep, startTimer, stopTimer, tickStep, useShop } from '../../state/store';
 import type { Run, Step } from '../../state/types';
 import { CheckIcon, DownloadIcon, FolderIcon, PauseIcon, PlayIcon, StopIcon } from '../../ui/icons';
-import { Button, Card, Row, Section, Sheet, showSnack, Swatch, T } from '../../ui/kit';
+import { Button, Card, Row, Section, Sheet, showSnack, Swatch, T, useContextMenu } from '../../ui/kit';
 import { MatView } from '../../ui/MatView';
 import { F, R, useTheme } from '../../ui/theme';
 import { useNow } from '../../ui/useNow';
@@ -125,6 +125,7 @@ export function CutLayout({ r, editable }: { r: Run; editable?: boolean }) {
 
 /** One step: tick, name and time, and a timer button */
 export function StepRow({ r, s, first, onOpen, onCut }: { r: Run; s: Step; first?: boolean; onOpen: () => void; onCut: () => void }) {
+  const ctxMenu = useStepMenu(r, s, onOpen, onCut);
   const shop = useShop();
   const t = useTheme();
   const m = shop.timer;
@@ -142,6 +143,7 @@ export function StepRow({ r, s, first, onOpen, onCut }: { r: Run; s: Step; first
   const sub = live ? `${m!.paused ? 'Paused' : 'You’re timing'} · ${clock(timerMs(m))}` : s.note ? s.note : '';
   return (
     <View
+      {...ctxMenu}
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderTopWidth: first ? 0 : 1, borderTopColor: t.line, backgroundColor: hover ? t.bg : 'transparent' }}>
@@ -174,6 +176,20 @@ export function StepRow({ r, s, first, onOpen, onCut }: { r: Run; s: Step; first
       )}
     </View>
   );
+}
+
+function useStepMenu(r: Run, s: Step, onOpen: () => void, onCut: () => void) {
+  const shop = useShop();
+  const live = !!shop.timer && shop.timer.step === s.id;
+  const isCut = /cut day/i.test(s.name) && !r.cut;
+  return useContextMenu([
+    { label: s.done ? 'Untick' : isCut ? 'Record the cut' : 'Mark done', onPress: () => (!s.done && isCut ? onCut() : tickStep(r.id, s.id)) },
+    !s.done ? (live ? { label: 'Stop timer', onPress: () => { const res = stopTimer(); if (res) showSnack(`Recorded ${mins(res.mins)} for ${res.step}`); } } : { label: 'Start timer', onPress: () => startTimer(r.id, s.id) }) : null,
+    { label: 'Edit step…', onPress: onOpen },
+    { label: 'Move up', onPress: () => moveStep(r.id, s.id, -1) },
+    { label: 'Move down', onPress: () => moveStep(r.id, s.id, 1) },
+    { label: 'Remove step', danger: true, onPress: () => { const i = r.steps.indexOf(s); removeStep(r.id, s.id); showSnack(`“${s.name}” removed`, () => restoreStep(r.id, s, i)); } },
+  ]);
 }
 
 /** The running timer, for the sidebar: step, run, clock, pause and stop */

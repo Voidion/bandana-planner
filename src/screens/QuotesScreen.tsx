@@ -42,7 +42,13 @@ export function QuotesScreen({ sel, setSel, openOrder }: { sel: string | null; s
                     const c = shop.customers.find(x => x.id === q.cust);
                     const tt = quoteTotals(shop, q);
                     return (
-                      <Row key={q.id} first={i === 0} selected={cur?.id === q.id} onPress={() => setSel(q.id)}>
+                      <Row key={q.id} first={i === 0} selected={cur?.id === q.id} onPress={() => setSel(q.id)}
+                        menu={[
+                          { label: 'Open', onPress: () => setSel(q.id) },
+                          { label: 'Duplicate', onPress: () => setSel(addQuote({ cust: q.cust, title: q.title ? q.title + ' (copy)' : '', lines: q.lines.map(l => ({ ...l, price: null })), deal: q.deal, deposit: q.deposit, pickup: q.pickup, notes: q.notes })) },
+                          q.status === 'sent' ? { label: 'They accepted', onPress: () => acceptQuote(q.id) } : null,
+                          { label: 'Delete quote', danger: true, onPress: () => { const i2 = shop.quotes.findIndex(x => x.id === q.id); deleteQuote(q.id); showSnack(`${q.no} deleted`, () => restoreQuote(q, i2)); } },
+                        ]}>
                         <View style={{ flex: 1, gap: 2 }}>
                           <T style={{ fontWeight: '600' }} numberOfLines={1}>{q.title || (c ? c.name : 'New quote')}</T>
                           <T s="sub" numberOfLines={1}>{q.no} · {plural(tt.n, 'item')}</T>

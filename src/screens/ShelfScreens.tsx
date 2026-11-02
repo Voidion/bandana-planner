@@ -85,7 +85,12 @@ export function SuppliesScreen({ sel, setSel }: { sel: string | null; setSel: (i
             {[...shop.supplies].sort((a, b) => a.name.localeCompare(b.name)).map((x, i) => {
               const low = x.qty <= x.low && (x.low > 0 || x.qty <= 0);
               return (
-                <Row key={x.id} first={i === 0} selected={cur?.id === x.id} onPress={() => setSel(x.id)}>
+                <Row key={x.id} first={i === 0} selected={cur?.id === x.id} onPress={() => setSel(x.id)}
+                  menu={[
+                    { label: 'Open', onPress: () => setSel(x.id) },
+                    x.onOrder ? { label: 'It arrived', onPress: () => arrived('supply', x.id) } : { label: 'Mark ordered', onPress: () => markOrdered('supply', x.id, Math.max(1, Math.ceil(x.low * 2 - x.qty))) },
+                    { label: 'Delete supply', danger: true, onPress: () => { const i2 = shop.supplies.findIndex(y => y.id === x.id); deleteSupply(x.id); showSnack(`${x.name} deleted`, () => restoreSupply(x, i2)); } },
+                  ]}>
                   <View style={{ flex: 1, gap: 2 }}>
                     <T style={{ fontWeight: '600' }} numberOfLines={1}>{x.name}</T>
                     <T s="sub" numberOfLines={1}>{USE.find(u => u[0] === x.use)?.[1] || 'Not automatically'}{x.cost ? ` · ${money(x.cost)} each` : ''}</T>

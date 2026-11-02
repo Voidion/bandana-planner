@@ -8,14 +8,23 @@ import { exportPhotos, onDevice, openPath } from '../state/storage';
 import { useShop } from '../state/store';
 import type { Photo } from '../state/types';
 import { CloseIcon, PlusIcon, TrashIcon } from '../ui/icons';
-import { Button, Card, Chip, Empty, Field, IconButton, Row, Section, Segmented, Select, showSnack, T } from '../ui/kit';
+import { Button, Card, Chip, Empty, Field, IconButton, Row, Section, Segmented, Select, showSnack, T, useContextMenu } from '../ui/kit';
 import { F, R, useTheme } from '../ui/theme';
 import { CustomerSelect } from './SellingScreens';
 
 export function Thumb({ p, size, onPress, selected }: { p: Photo; size: number; onPress?: () => void; selected?: boolean }) {
   const t = useTheme();
+  const ctx = useContextMenu(
+    p.deleted
+      ? [{ label: 'Recover', onPress: () => recoverPhotos([p.id]) }, { label: 'Delete for good', danger: true, onPress: () => purgePhotos([p.id]) }]
+      : [
+          onPress ? { label: 'Open', onPress } : null,
+          { label: p.fav ? 'Remove from favorites' : 'Favorite', onPress: () => editPhoto(p.id, { fav: !p.fav }) },
+          { label: 'Delete', danger: true, onPress: () => { trashPhotos([p.id]); showSnack('Moved to Recently deleted', () => recoverPhotos([p.id])); } },
+        ],
+  );
   return (
-    <Pressable accessibilityRole="imagebutton" accessibilityLabel={p.name || 'Photo'} onPress={onPress} style={{ width: size, height: size, borderRadius: 10, overflow: 'hidden', backgroundColor: t.sunken, borderWidth: selected ? 3 : 0, borderColor: t.action }}>
+    <Pressable {...ctx} accessibilityRole="imagebutton" accessibilityLabel={p.name || 'Photo'} onPress={() => !ctx.wasRight() && onPress && onPress()} style={{ width: size, height: size, borderRadius: 10, overflow: 'hidden', backgroundColor: t.sunken, borderWidth: selected ? 3 : 0, borderColor: t.action }}>
       <Image source={{ uri: p.src }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
       {p.fav ? <View style={{ position: 'absolute', right: 6, top: 4 }}><T style={{ fontSize: 16 }} color="#fff">♥</T></View> : null}
       {selected ? <View style={{ position: 'absolute', left: 6, top: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: t.action, alignItems: 'center', justifyContent: 'center' }}><T s="small" color={t.onAction} style={{ fontWeight: '700' }}>✓</T></View> : null}

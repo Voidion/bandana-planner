@@ -78,7 +78,14 @@ export function FabricScreen({ onPlanWith, openRun, sel, setSel }: { onPlanWith:
                   <Section key={title} title={`${title} · ${items.length}`}>
                     <Card pad={false} style={{ overflow: 'hidden' }}>
                       {items.map((f: Fabric, i: number) => (
-                        <Row key={f.id} first={i === 0} selected={cur?.id === f.id} onPress={() => setSel(f.id)}>
+                        <Row key={f.id} first={i === 0} selected={cur?.id === f.id} onPress={() => setSel(f.id)}
+                          menu={[
+                            { label: 'Open', onPress: () => setSel(f.id) },
+                            { label: 'Plan a run with it', onPress: () => onPlanWith(f.id) },
+                            !f.offcut && !f.onOrder ? { label: `Mark ${shop.cfg.newBolt.yards} yd ordered`, onPress: () => { markOrdered('fabric', f.id, shop.cfg.newBolt.yards); showSnack(`${shop.cfg.newBolt.yards} yd of ${f.name} on order`); } } : null,
+                            f.onOrder ? { label: 'It arrived', onPress: () => arrived('fabric', f.id) } : null,
+                            { label: 'Delete fabric', danger: true, onPress: () => { const i2 = shop.fabrics.findIndex(x => x.id === f.id); deleteFabric(f.id); showSnack(`${f.name} deleted`, () => restoreFabric(f, i2)); } },
+                          ]}>
                           <Swatch color={f.color} />
                           <View style={{ flex: 1, gap: 2 }}>
                             <T style={{ fontWeight: '600' }} numberOfLines={1}>{f.name}</T>
