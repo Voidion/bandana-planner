@@ -4,6 +4,8 @@ import { ScrollView, View } from 'react-native';
 import { money, plural } from '../lib/format';
 import { itemName, itemPrice } from '../lib/plan';
 import { adjustStock, stockBySize, useShop } from '../state/store';
+import { freeStock, orderLabel } from '../state/selling';
+import { RecordSaleSheet } from './SellingScreens';
 import { BoxIcon } from '../ui/icons';
 import { Button, Card, Chip, Empty, Row, Section, Sheet, Stepper, Swatch, T } from '../ui/kit';
 import { F, R, useTheme } from '../ui/theme';
@@ -12,7 +14,9 @@ export function StockScreen({ openRun }: { openRun: (id: string) => void }) {
   const shop = useShop();
   const t = useTheme();
   const [adj, setAdj] = useState<string | null>(null);
-  const by = stockBySize(shop);
+  const by = freeStock(shop);
+  const [rec, setRec] = useState(false);
+  const aside = shop.orders.filter(o => o.status !== 'delivered' && (o.fromStock.length || (o.run && shop.stock.some(x => x.run === o.run))));
   const total = Object.values(by).reduce((a, b) => a + b, 0);
   const value = Object.entries(by).reduce((a, [k, n]) => a + n * (itemPrice(shop, k) || 0), 0);
   const groups: Record<string, { size: string; n: number }[]> = {};
@@ -23,9 +27,12 @@ export function StockScreen({ openRun }: { openRun: (id: string) => void }) {
   ];
   return (
     <ScrollView contentContainerStyle={{ padding: 32, gap: 24, maxWidth: 980 }}>
-      <View style={{ gap: 4 }}>
-        <T s="title">Finished stock</T>
-        <T s="sub">Bandanas sewn and ready to sell. Finishing a run adds its bandanas here.</T>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
+        <View style={{ gap: 4, flex: 1 }}>
+          <T s="title">Finished stock</T>
+          <T s="sub">Bandanas sewn and ready to sell. Finishing a run adds its bandanas here.</T>
+        </View>
+        <Button title="Record a sale" onPress={() => setRec(true)} />
       </View>
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Card style={{ flex: 1, gap: 2 }}>
@@ -80,6 +87,19 @@ export function StockScreen({ openRun }: { openRun: (id: string) => void }) {
           </Card>
         </Section>
       ) : null}
+      {aside.length ? (
+        <Section title="Set aside for orders">
+          <Card pad={false} style={{ overflow: 'hidden' }}>
+            {aside.map((o, i) => (
+              <Row key={o.id} first={i === 0}>
+                <View style={{ flex: 1 }}><T style={{ fontWeight: '600' }}>{o.title || shop.customers.find(c => c.id === o.cust)?.name || 'Order'}</T><T s="sub">{orderLabel(shop, o)}</T></View>
+              </Row>
+            ))}
+          </Card>
+          <T s="small">These aren’t counted as ready to sell.</T>
+        </Section>
+      ) : null}
+      {rec ? <RecordSaleSheet onClose={() => setRec(false)} /> : null}
       {adj ? <AdjustSheet size={adj} onClose={() => setAdj(null)} /> : null}
     </ScrollView>
   );
@@ -88,7 +108,7 @@ export function StockScreen({ openRun }: { openRun: (id: string) => void }) {
 function AdjustSheet({ size, onClose }: { size: string; onClose: () => void }) {
   const shop = useShop();
   const t = useTheme();
-  const now = stockBySize(shop)[size] || 0;
+  const now = freeStock(shop)[size] || 0;
   const [n, setN] = useState(now);
   const z = { name: itemName(shop, size) };
   const save = () => {

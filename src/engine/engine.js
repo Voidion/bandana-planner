@@ -14,6 +14,7 @@ export function setToday(d){TODAY=new Date(d.getFullYear(),d.getMonth(),d.getDat
 const dateOf=d=>new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+(+d||0));
 const LED=()=>(S&&S.ledger)||[];
 const DAY=864e5;
+const money=n=>(n<0?'−':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const MET=()=>false;
 const cm1=v=>String(Math.round(v*2.54*10)/10);
 const L=v=>MET()?cm1(+v||0)+' cm':String(Math.round((+v||0)*100)/100)+'"';
@@ -25,6 +26,23 @@ const doneN=r=>r.steps.filter(s=>s.done).length;
 const rate=r=>{const h=runMins(r)*laborF()/60;if(!h)return 0;const fees=Object.entries(r.qty).reduce((a,[k,n])=>a+n*feeEach(IT(k).price||0),0)+prodFees(r.prod);return (atList(r)-mats(r)-overheadEach()*(pieces(r)+prodCount(r.prod))-fees)/h};
 const isLow=f=>f.low>0&&f.yards<=f.low;
 const finished=()=>S.runs.filter(r=>r.status==='done');
+function qtotals(q){
+ const lines=q.lines.map(l=>{const p=l.price??IT(l.size).price;return{...l,name:IT(l.size).name,unit:p,gross:p*l.qty,follows:l.price==null}});
+ const gross=lines.reduce((a,l)=>a+l.gross,0), n=lines.reduce((a,l)=>a+l.qty,0);
+ let disc=0,dname='';
+ if(q.deal==='b2g1half'){const free=Math.floor(n/3);const cheapest=Math.min(...lines.map(l=>l.unit));disc=free*cheapest*.5;dname='Buy 2, get 1 half off'}
+ if(q.deal==='spend150'){disc=gross>=150?25:0;dname='Spend $150, $25 off'}
+ if(q.deal&&q.deal.startsWith('bundle:')){const b=q.dealSnap&&q.dealSnap.id===q.deal.slice(7)?q.dealSnap:S.bundles.find(x=>x.id===q.deal.slice(7));if(b){const need=Object.entries(b.items||{}).filter(([,n])=>n>0);if(need.length){const g=Math.min(...need.map(([k,n])=>Math.floor(lines.filter(x=>x.size===k).reduce((a,x)=>a+x.qty,0)/n))),unit=k=>{const l=lines.find(x=>x.size===k);return l?l.unit:IT(k).price||0};disc=Math.max(0,g*(need.reduce((a,[k,n])=>a+n*unit(k),0)-b.price));dname=`${b.name} · ${bundleWord(b)} for ${money(b.price)}`}}}
+ const total=gross-disc;
+ const mat=lines.reduce((a,l)=>a+l.qty*(unitMat(l.size)||0),0);
+ const hrs=lines.reduce((a,l)=>a+l.qty*(unitMins(l.size)||0),0)*laborF()/60;
+ const sh=q.shipSnap||S.cfg.ship,free=sh.threshold>0&&total>=sh.threshold;
+ const ship=q.pickup?0:free?0:sh.charge,label=q.pickup?0:sh.cost;
+ const fees=S.cfg.fees.on?(total+ship)*S.cfg.fees.rate/100+S.cfg.fees.flat:0,over=overheadEach()*n;
+ const keep=total+ship-mat-over-fees-label;
+ const dead=!q.pickup&&free&&sh.charge>0&&total<sh.threshold+sh.charge;
+ return {lines,gross,disc,dname,total,n,mat,hrs,ship,label,fees,over,keep,dead,grand:total+ship,perHr:hrs?keep/hrs:0};
+}
 const PAY=()=>!!(S.cfg&&S.cfg.payLabor);
 const runProfit=r=>{if(r.review&&r.review.profit!=null)return r.review.profit;const fees=Object.entries(r.qty).reduce((a,[k,n])=>a+n*feeEach(IT(k).price||0),0)+prodFees(r.prod);return atList(r)-mats(r)-overheadEach()*(pieces(r)+prodCount(r.prod))-fees};
 function avgEach(){const f=finished();const p=f.reduce((a,r)=>a+pieces(r)+prodCount(r.prod),0);return p?f.reduce((a,r)=>a+runProfit(r),0)/p:0}
@@ -375,6 +393,7 @@ const partArea=x=>(x.file&&x.file.area?x.file.area:(+x.w||0)*(+x.l||0))*Math.max
 const vMins=v=>(+v.mins||0)+(vPart(v)?(+vPart(v).mins||0):0);
 const vNotions=v=>(+v.notions||0)+(vPart(v)?(+vPart(v).notions||0):0);
 const vMat=v=>vFab(v)+vNotions(v)+supEach('item')+mailerEach();
+const bundleWord=b=>Object.entries(b.items||{}).filter(([,n])=>n>0).map(([k,n])=>`${n} ${IT(k).name}`).join(' + ')||'Nothing in it yet';
 const prodSum=(map,fn)=>Object.entries(map||{}).reduce((a,[id,n])=>{const v=pv(id);return a+(v&&n?n*fn(v):0)},0);
 const prodValue=map=>prodSum(map,v=>+v.price||0);
 const prodMat=map=>prodSum(map,vMat);
@@ -387,6 +406,18 @@ function prodStepsFor(map){const out=[];(S.products||[]).forEach(p=>{const tot=O
  (p.steps&&p.steps.length?p.steps:[{n:'Make',r:1}]).forEach(x=>out.push({id:'st'+(uid++),name:`${p.name}: ${x.n}`,est:Math.max(1,Math.round(tot*(+x.r||0)/sumR)),source:'product',prod:p.id,done:false}))});return out}
 const strapCostOf=r=>Object.entries(r.qty||{}).reduce((a,[k,n])=>a+n*(+strapOf(k).mat||0),0);
 function avgFabCost(){const fs=S.fabrics.filter(f=>!f.offcut&&f.cost>0);return fs.length?fs.reduce((a,f)=>a+f.cost,0)/fs.length:8.5}
+const eTotal=e=>+(e.sub+(e.ship||0)+(e.tax||0)-(e.refund||0)).toFixed(2);
+const eOwed=e=>Math.max(0,+(eTotal(e)-(e.paid||0)).toFixed(2));
+const eNet=e=>e.sub-(e.refund||0);
+const eProfit=e=>e.sub-(e.refund||0)-(e.fees||0)-(e.mat||0)-(e.costs||0);
+const eUnits=e=>Object.values(e.items||{}).reduce((a,b)=>a+b,0);
+const eLabor=e=>Object.entries(e.items||{}).reduce((a,[k,n])=>a+n*((typeof unitMins==='function'&&unitMins(k))||(S.sizes[k]&&S.sizes[k].mins)||33),0)*S.laborRate/60;
+const eDate=e=>dateOf(e.d);
+function feeFor(ch,amt){const f=S.cfg.fees;if(ch==='Shopify'||ch==='Direct')return f.on?+(amt*f.rate/100+f.flat).toFixed(2):0;if(ch==='Market')return f.on?+(amt*.65*f.rate/100).toFixed(2):0;return 0}
+function matFor(items){return +Object.entries(items||{}).reduce((a,[k,n])=>a+n*(unitMat(k)||0),0).toFixed(2)}
+function perList(per){const Y=TODAY.getFullYear(),cm=TODAY.getMonth();return LED().filter(e=>{const t=eDate(e);if(t.getFullYear()!==Y||e.d>0)return false;if(per==='year')return true;if(per==='3m')return t.getMonth()>=cm-2;if(/^m\d+$/.test(per))return t.getMonth()===+per.slice(1);if(/^Q[1-4]$/.test(per))return Math.floor(t.getMonth()/3)===+per[1]-1;return true})}
+function sums(list){return list.reduce((a,e)=>{a.sales+=eNet(e);a.profit+=eProfit(e);a.fees+=e.fees||0;a.mat+=e.mat||0;a.tax+=e.tax||0;a.ship+=e.ship||0;a.refund+=e.refund||0;a.gross+=e.sub;a.units+=eUnits(e);a.labor+=eLabor(e);a.costs+=(e.costs||0);a.n++;return a},{costs:0,labor:0,sales:0,profit:0,fees:0,mat:0,tax:0,ship:0,refund:0,gross:0,units:0,n:0})}
+function profitEach(){const s=memo('profitEachYr',()=>sums(perList('year')));return s.units?s.profit/s.units:0}
 const isSewStep=n=>/sew|stitch|hem|serg|bind/i.test(n||'');
 const rnT=r=>{const n=String(r.name||''),i=n.indexOf(' — ');return i<0?n:n.slice(0,i)},rnP=r=>{const n=String(r.name||''),i=n.indexOf(' — '),t=i<0?'':n.slice(i+3);return t.charAt(0).toUpperCase()+t.slice(1)};
-export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,pieces,doneN,runMins,leftMins,atList,mats,rate,runProfit,avgEach,effRate,unitMins,unitMat,unitCost,pcsEq,tplMins,stepsFor,runSteps,tplOf,defTpl,tplTotal,paceStats,fabCostOf,overheadEach,feeEach,laborF,priceFor,marginOf,IT,tEl,isStale,isSewStep};
+export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,pieces,doneN,runMins,leftMins,atList,mats,rate,runProfit,avgEach,effRate,unitMins,unitMat,unitCost,pcsEq,tplMins,stepsFor,runSteps,tplOf,defTpl,tplTotal,paceStats,fabCostOf,overheadEach,feeEach,laborF,priceFor,marginOf,IT,tEl,isStale,isSewStep,feeFor,matFor,eTotal,eOwed,eNet,eProfit,eUnits,sums,perList,profitEach,qtotals,monthlyBills};

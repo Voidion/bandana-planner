@@ -146,3 +146,25 @@ export const TagIcon = I(
     <Circle cx="8" cy="8" r="1.5" />
   </>,
 );
+export const PeopleIcon = I(
+  <>
+    <Circle cx="9" cy="8.5" r="3.2" />
+    <Path d="M3.5 19.5c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" />
+    <Path d="M15.5 5.6a3 3 0 0 1 0 5.8M17.5 14.8c1.6.6 2.7 2.2 3 4.7" />
+  </>,
+);
+export const SpoolIcon = I(
+  <>
+    <Rect x="6" y="3.5" width="12" height="3" rx="1" />
+    <Rect x="6" y="17.5" width="12" height="3" rx="1" />
+    <Path d="M8 6.5v11M16 6.5v11M8 9l8 2M8 12l8 2M8 15l8-1" />
+  </>,
+);
+export const RestockIcon = I(
+  <>
+    <Path d="M4.5 12a7.5 7.5 0 0 1 13-5.1L19.5 9" />
+    <Path d="M19.5 4.5V9H15" />
+    <Path d="M19.5 12a7.5 7.5 0 0 1-13 5.1L4.5 15" />
+    <Path d="M4.5 19.5V15H9" />
+  </>,
+);

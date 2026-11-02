@@ -12,7 +12,9 @@ if (!proto) { console.error('Pass the path to bandana-planner.html'); process.ex
 const CUT = ['cutPlan', 'grainOf', 'strapOf', 'sizeYd', 'sizeFab', 'planNeeds', 'isLow', 'ventMat', 'VENTURE_MATS', 'pieceShapes', 'exportSvg'];
 /* Runs and production: time, money and template maths, exactly as the prototype does it */
 const RUNS = ['pieces', 'doneN', 'runMins', 'leftMins', 'atList', 'mats', 'rate', 'runProfit', 'avgEach', 'effRate', 'unitMins', 'unitMat', 'unitCost', 'pcsEq', 'tplMins', 'stepsFor', 'runSteps', 'tplOf', 'defTpl', 'tplTotal', 'paceStats', 'fabCostOf', 'overheadEach', 'feeEach', 'laborF', 'priceFor', 'marginOf', 'IT', 'tEl', 'isStale', 'isSewStep'];
-const ROOTS = [...CUT, ...RUNS];
+/* Selling: sale money, fees, quote totals, owed */
+const SELL = ['feeFor', 'matFor', 'eTotal', 'eOwed', 'eNet', 'eProfit', 'eUnits', 'sums', 'perList', 'profitEach', 'qtotals', 'monthlyBills', 'unitCost'];
+const ROOTS = [...CUT, ...RUNS, ...SELL];
 const EXTERNAL = new Set(['S', 'uid', 'render', 'toast', 'log', 'PHOTOS', 'freshState', 'scrClass', 'W', 'stackOf', 'RC', 'sampleLedger', 'sampleEquip', 'sampleCustomers', 'seedSessions', 'seedUsage', 'newPlan', 'run', 'fab', 'uid', 'TODAY', 'dateOf', 'bench', 'LED', 'esc']);
 
 const html = fs.readFileSync(proto, 'utf8');
@@ -57,7 +59,7 @@ export function setToday(d){TODAY=new Date(d.getFullYear(),d.getMonth(),d.getDat
 const dateOf=d=>new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+(+d||0));
 const LED=()=>(S&&S.ledger)||[];
 ${body}
-export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,${RUNS.join(',')}};
+export {pieceShapes,exportSvg,cutPlan,cutPlan0,planNeeds,grainOf,topOf,strapOf,sizeYd,sizeFab,isLow,ventMat,VENTURE_MATS,TOPS,fabFactor,${[...new Set([...RUNS, ...SELL])].join(',')}};
 `;
 fs.writeFileSync(path.join(here, '../src/engine/engine.js'), out);
 console.log(`engine.js: ${need.size} pieces from the prototype`);

@@ -10,14 +10,16 @@ import { FixTimerSheet } from './src/screens/runs/sheets';
 import { SettingsScreen, type SettingsTab } from './src/screens/SettingsScreen';
 import { StockScreen } from './src/screens/StockScreen';
 import { RestockScreen, SuppliersScreen, SuppliesScreen } from './src/screens/ShelfScreens';
+import { CustomersScreen, OrdersScreen, SalesScreen } from './src/screens/SellingScreens';
+import { freeStock, isLate, orderStage, saleOwed } from './src/state/selling';
 import { restockList } from './src/state/shelf';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
-import { BatchesIcon, BoxIcon, CartIcon, FabricIcon, GearIcon, ScissorsIcon, StoreIcon, TagIcon } from './src/ui/icons';
+import { BatchesIcon, BoxIcon, CartIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
 import { Button, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
 
-type Route = 'runs' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
+type Route = 'runs' | 'orders' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
 
 export default function App() {
   const t = useTheme();
@@ -27,6 +29,12 @@ export default function App() {
   const [setTab, setSetTab] = useState<SettingsTab>('sizes');
   const [fabSel, setFabSel] = useState<string | null>(null);
   const [supSel, setSupSel] = useState<string | null>(null);
+  const [ordSel, setOrdSel] = useState<string | null>(null);
+  const [custSel, setCustSel] = useState<string | null>(null);
+  const openOrder = (id: string) => {
+    setOrdSel(id);
+    setRoute('orders');
+  };
   const openFabric = (id: string) => {
     setFabSel(id);
     setRoute('fabric');
@@ -73,6 +81,12 @@ export default function App() {
             <FabricScreen sel={fabSel} setSel={setFabSel} onPlanWith={id => openRun(planRun({ body: id, ties: id }))} openRun={openRun} />
           ) : route === 'runs' ? (
             <RunsScreen sel={runSel} setSel={setRunSel} goSetup={() => { setSetTab('sizes'); setRoute('settings'); }} />
+          ) : route === 'orders' ? (
+            <OrdersScreen sel={ordSel} setSel={setOrdSel} openRun={openRun} />
+          ) : route === 'sales' ? (
+            <SalesScreen />
+          ) : route === 'customers' ? (
+            <CustomersScreen sel={custSel} setSel={setCustSel} openOrder={openOrder} />
           ) : route === 'supplies' ? (
             <SuppliesScreen sel={supSel} setSel={setSupSel} />
           ) : route === 'suppliers' ? (
@@ -131,26 +145,32 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
   const save = useSaveState();
   const low = shop.fabrics.filter(f => f.low > 0 && f.yards <= f.low).length;
   const active = shop.runs.filter(r => r.status === 'active').length;
-  const stock = Object.values(stockBySize(shop)).reduce((a, b) => a + b, 0);
+  const stock = Object.values(freeStock(shop)).reduce((a, b) => a + b, 0);
+  const openOrders = shop.orders.filter(o => o.status !== 'delivered').length;
+  const late = shop.sales.filter(isLate).length;
   const need = restockList(shop).filter(i => !(i.x.onOrder > 0)).length;
   const item = (r: Route, label: string, icon: (c: string) => React.ReactNode, badge?: string, warn?: boolean) => {
     const on = route === r;
     return <NavItem key={r} on={on} label={label} icon={icon(on ? t.onTint : t.text2)} badge={badge} warn={warn} onPress={() => setRoute(r)} />;
   };
   return (
-    <View style={{ width: 240, backgroundColor: t.surface, borderRightWidth: 1, borderRightColor: t.line, paddingHorizontal: 12, paddingTop: 22, paddingBottom: 16, gap: 4 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, marginBottom: 18 }}>
+    <View style={{ width: 240, backgroundColor: t.surface, borderRightWidth: 1, borderRightColor: t.line, paddingHorizontal: 12, paddingTop: 18, paddingBottom: 14, gap: 2 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, marginBottom: 12 }}>
         <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: t.action, alignItems: 'center', justifyContent: 'center' }}>
           <BatchesIcon color={t.onAction} size={17} />
         </View>
         <T style={{ fontWeight: '700', fontSize: 16 }}>Bandana Planner</T>
       </View>
       {item('runs', 'Runs', c => <ScissorsIcon color={c} />, active ? String(active) : undefined)}
+      {item('orders', 'Orders', c => <CartIcon color={c} />, openOrders ? String(openOrders) : undefined)}
+      {item('sales', 'Sales', c => <TagIcon color={c} />, late ? `${late} late` : undefined, true)}
+      {item('customers', 'Customers', c => <PeopleIcon color={c} />)}
+      <View style={{ height: 10 }} />
       {item('fabric', 'Fabric', c => <FabricIcon color={c} />, low ? `${low} low` : undefined, true)}
-      {item('supplies', 'Supplies', c => <BoxIcon color={c} />)}
-      {item('restock', 'Restock', c => <CartIcon color={c} />, need ? String(need) : undefined, true)}
+      {item('supplies', 'Supplies', c => <SpoolIcon color={c} />)}
+      {item('restock', 'Restock', c => <RestockIcon color={c} />, need ? String(need) : undefined, true)}
       {item('suppliers', 'Suppliers', c => <StoreIcon color={c} />)}
-      {item('stock', 'Finished stock', c => <TagIcon color={c} />, stock ? String(stock) : undefined)}
+      {item('stock', 'Finished stock', c => <BoxIcon color={c} />, stock ? String(stock) : undefined)}
       {item('settings', 'Settings', c => <GearIcon color={c} />)}
       <View style={{ flex: 1 }} />
       <TimerCard onOpen={openRun} />
@@ -166,7 +186,7 @@ function NavItem({ on, label, icon, badge, warn, onPress }: { on: boolean; label
   const [hover, setHover] = useState(false);
   return (
     <Pressable accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={onPress} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 42, paddingHorizontal: 10, borderRadius: 10, backgroundColor: on ? t.tint : hover ? t.sunken : 'transparent' }}>
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 36, paddingHorizontal: 10, borderRadius: 10, backgroundColor: on ? t.tint : hover ? t.sunken : 'transparent' }}>
       {icon}
       <Text style={{ flex: 1, fontSize: F.f15, fontWeight: on ? '700' : '500', color: on ? t.onTint : t.text }}>{label}</Text>
       {badge ? (

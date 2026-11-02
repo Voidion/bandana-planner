@@ -36,7 +36,8 @@ export function sync(shop: Shop) {
     ...shop,
     runs: shop.runs.map(r => ({ ...r, due: rel(r.due), prod: r.prod || {} })),
     sessions: shop.sessions.map(s => ({ ...s, day: rel(s.day) ?? 0 })),
-    ledger: [],
+    ledger: shop.sales.map(e => ({ ...e, d: rel(e.day) ?? 0, pays: e.pays.map(p => ({ ...p, d: rel(p.day) ?? 0 })), due: e.due ? rel(e.due) : undefined })),
+    quotes: [],
   });
 }
 

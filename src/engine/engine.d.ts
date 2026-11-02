@@ -54,3 +54,16 @@ export function IT(k: string): any;
 export function tEl(t: any): number;
 export function isStale(t: any): boolean;
 export function isSewStep(n: string): boolean;
+/* Selling */
+export function feeFor(ch: string, amt: number): number;
+export function matFor(items: Record<string, number>): number;
+export function eTotal(e: any): number;
+export function eOwed(e: any): number;
+export function eNet(e: any): number;
+export function eProfit(e: any): number;
+export function eUnits(e: any): number;
+export function sums(list: any[]): any;
+export function perList(per: string): any[];
+export function profitEach(): number;
+export function qtotals(q: any): any;
+export function monthlyBills(): number;

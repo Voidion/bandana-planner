@@ -116,6 +116,91 @@ export interface Product {
   variants: ProductVariant[];
 }
 
+export interface Dog {
+  id: string;
+  name: string;
+  breed: string;
+  /** Neck, inches */
+  neck: number | null;
+  size: SizeKey | null;
+  notes: string;
+}
+
+export type CustomerKind = 'Person' | 'Shop' | 'Consignment' | 'Shopify' | 'Custom';
+export interface Customer {
+  id: string;
+  name: string;
+  kind: CustomerKind;
+  contact: string;
+  email: string;
+  phone: string;
+  handle: string;
+  dogs: Dog[];
+  notes: string;
+  added: Day;
+}
+
+export type Channel = 'Market' | 'Direct' | 'Wholesale' | 'Shopify';
+/** A sale, in the prototype's ledger shape so Reports, Tax and Trends read it unchanged */
+export interface Sale {
+  id: string;
+  day: Day;
+  ch: Channel;
+  ref: string;
+  cust?: string;
+  run?: string;
+  order?: string;
+  what: string;
+  /** What sold, per size or product style */
+  items: Record<string, number>;
+  /** Price of the goods after discounts */
+  sub: number;
+  ship: number;
+  tax: number;
+  fees: number;
+  /** Materials for what sold */
+  mat: number;
+  refund: number;
+  /** Paid so far */
+  paid: number;
+  pays: { day: Day; amt: number }[];
+  /** When the rest is due (pay later) */
+  due?: Day;
+  /** Taken out of finished stock (Undo puts it back) */
+  from: StockLine[];
+  sup?: { id: string; name: string; n: number }[];
+}
+
+export type OrderStatus = 'new' | 'delivered';
+export interface Order {
+  id: string;
+  cust: string | null;
+  title: string;
+  /** Where it came from: "Email from Dana", "Shopify #1042", "From quote Q-1040" */
+  src: string;
+  qty: Record<string, number>;
+  due: Day | null;
+  fab: string | null;
+  /** The run making it */
+  run: string | null;
+  /** Set aside from finished stock */
+  fromStock: StockLine[];
+  status: OrderStatus;
+  deliveredAt: Day | null;
+  /** Agreed price for the whole order (otherwise your prices) */
+  price: number | null;
+  notes: string;
+  quote?: string;
+}
+
+export interface Bundle {
+  id: string;
+  name: string;
+  items: Record<string, number>;
+  price: number;
+  on: boolean;
+}
+
 export interface Supplier {
   id: string;
   name: string;
@@ -351,9 +436,15 @@ export interface Shop {
     round: number;
     /** Count your time as a cost (off: time isn't a cost) */
     payLabor: boolean;
+    /** Free shipping over `threshold`; otherwise charge `charge`. `cost` is what a label costs you. */
+    ship: { threshold: number; charge: number; cost: number };
   };
   suppliers: Supplier[];
   supplies: Supply[];
+  customers: Customer[];
+  sales: Sale[];
+  orders: Order[];
+  bundles: Bundle[];
   usage: UsageLine[];
   products: Product[];
 }
