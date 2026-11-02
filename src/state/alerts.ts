@@ -2,7 +2,7 @@
    Each can be dismissed (gone until it changes) or snoozed (back later). */
 import { mins, money, plural, relDue, yd } from '../lib/format';
 import { addDays, rel, schedule, timerMs, todayDay, unitMinutes } from '../lib/plan';
-import { toolDue, unitOf } from './planning';
+import { taskLeft, taskState, toolState, unitWord, usedTool } from './equip';
 import { freeStock, isLate, orderCount, saleOwed, saleTotal } from './selling';
 import { restockList } from './shelf';
 import { getShop, update } from './store';
@@ -146,9 +146,14 @@ export function alertsAll(s: Shop, now = Date.now()): Alert[] {
       add({ id: `mkt:${ev.id}:${d}`, kind: 'market', tone: 'warn', icon: 'coin', t: `${ev.title} ${d === 0 ? 'is today' : d === 1 ? 'is tomorrow' : 'is ' + dshort(ev.day).split(',')[0]}`, s: `${plural(ready, 'bandana')} ready to sell`, act: { label: 'Open market day', route: 'market' }, rank: 2.2 });
     }
   }
-  s.tools.filter(toolDue).forEach(t => {
-    const past = t.uses >= t.life;
-    add({ id: `tl:${t.id}:${t.since}:${past ? 1 : 0}`, kind: 'tools', tone: past ? 'bad' : 'warn', icon: 'wrench', t: past ? `${t.name} is past its lifespan` : `${t.name} is due soon`, s: `${Math.round(t.uses)} of ${t.life} ${unitOf(t)}${past ? '. Replace it before the next use' : ''}`, act: { label: 'Open maintenance', route: 'maintenance' }, rank: past ? 1.5 : 3.2 });
+  s.equip.tools.forEach(t => {
+    const st = toolState(t);
+    if (st.life && st.used >= st.life) add({ id: `tl-life:${t.id}:${t.history.length}`, kind: 'tools', tone: 'bad', icon: 'wrench', t: `${t.name} is past its lifespan`, s: `${st.used} of ${t.life} ${unitWord(t)}. Replace it before the next cut`, act: { label: 'Open maintenance', route: 'maintenance' }, rank: 1.5 });
+    else if (st.checkIn != null && st.checkIn <= 0 && usedTool(s.equip, t)) add({ id: `tl-chk:${t.id}:${t.lastCheck}`, kind: 'tools', tone: 'warn', icon: 'wrench', t: `Check the ${t.name}`, s: `${st.since} ${unitWord(t)} since the last check. Look at the blade and fabric for wear`, act: { label: 'Check it', route: 'maintenance' }, rank: 2.1 });
+  });
+  s.equip.tasks.forEach(t => {
+    const st = taskState(s.equip, t);
+    if (st.due) add({ id: `tk:${t.id}:${t.last}:${t.every}`, kind: 'tools', tone: 'warn', icon: 'wrench', t: t.look ? `Time to look: ${t.name.toLowerCase()}` : t.name, s: `${t.machine === 'venture' ? s.equip.venture.name : s.equip.sewing.name} · due ${taskLeft(s, t, st)}`, act: { label: 'Open maintenance', route: 'maintenance' }, rank: 3.2 });
   });
   s.sales.filter(isLate).forEach(e => {
     const who = custName(s, e.cust, e.ch || 'Someone');

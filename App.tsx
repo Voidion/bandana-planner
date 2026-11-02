@@ -17,8 +17,12 @@ import { MarketScreen } from './src/screens/MarketScreen';
 import { PhotosScreen } from './src/screens/PhotosScreen';
 import { TodayScreen } from './src/screens/TodayScreen';
 import { WorkflowScreen } from './src/screens/WorkflowScreen';
+import { TrendsScreen } from './src/screens/TrendsScreen';
 import { handleKey, NewMenu, SearchSheet } from './src/screens/AppWide';
-import { ActivityScreen, MaintenanceScreen, ReportsScreen, ScheduleScreen } from './src/screens/NumbersScreens';
+import { ReportsScreen } from './src/screens/NumbersScreens';
+import { ActivityScreen } from './src/screens/ActivityScreen';
+import { ScheduleScreen } from './src/screens/ScheduleScreen';
+import { MaintenanceScreen } from './src/screens/MaintenanceScreen';
 import { pruneAlerts } from './src/state/alerts';
 import { purgeOld } from './src/state/photos';
 import { sendReminders } from './src/state/reminders';
@@ -42,7 +46,7 @@ export default function App() {
   const [split, setSplit] = useState<Split>({ on: false, right: 'fabric', focus: 'L', ratio: 0.5 });
   const [runSel, setRunSel] = useState<string | null>(null);
   const [wfSel, setWfSel] = useState<string | null>(null);
-  const [setTab, setSetTab] = useState<SettingsTab>('sizes');
+  const [setTab, setSetTab] = useState<SettingsTab>('shop');
   const [fabSel, setFabSel] = useState<string | null>(null);
   const [supSel, setSupSel] = useState<string | null>(null);
   const [ordSel, setOrdSel] = useState<string | null>(null);
@@ -135,12 +139,12 @@ export default function App() {
     r === 'today' ? <TodayScreen go={go} onDefect={defect} onInbox={() => setOverlay('inbox')} onPlan={() => openRun(planRun())} />
     : r === 'workflow' ? <WorkflowScreen sel={wfSel} setSel={setWfSel} onPlan={() => openRun(planRun())} />
     : r === 'schedule' ? <ScheduleScreen go={go} />
-    : r === 'reports' ? <ReportsScreen key="reports" start="reports" />
-    : r === 'trends' ? <ReportsScreen key="trends" start="trends" />
+    : r === 'reports' ? <ReportsScreen go={go} />
+    : r === 'trends' ? <TrendsScreen go={go} />
     : r === 'photos' ? <PhotosScreen go={go} />
     : r === 'maintenance' ? <MaintenanceScreen />
-    : r === 'activity' ? <ActivityScreen />
-    : r === 'fabric' ? <FabricScreen sel={fabSel} setSel={setFabSel} onPlanWith={id => openRun(planRun({ body: id, ties: id }))} openRun={openRun} />
+    : r === 'activity' ? <ActivityScreen go={go} />
+    : r === 'fabric' ? <FabricScreen sel={fabSel} setSel={setFabSel} onPlanWith={id => openRun(planRun({ body: id, ties: id }))} openRun={openRun} go={go} />
     : r === 'runs' ? <RunsScreen sel={runSel} setSel={setRunSel} goSetup={() => go('settings', 'sizes')} openWorkflow={id => go('workflow', id)} />
     : r === 'orders' ? <OrdersScreen sel={ordSel} setSel={setOrdSel} openRun={openRun} openCustomer={id => go('customers', id)} />
     : r === 'quotes' ? <QuotesScreen sel={quoteSel} setSel={setQuoteSel} openOrder={openOrder} openCustomer={id => go('customers', id)} />

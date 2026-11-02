@@ -237,3 +237,6 @@ export const LockIcon = I(<><Rect x="5" y="10.5" width="14" height="10" rx="2.5"
 export const SwapIcon = I(<Path d="M7 7h12l-3-3M17 17H5l3 3" />);
 export const DogIcon = I(<><Path d="M12 12.2c-2.6 0-4.6 2.5-4.6 4.6 0 1.6 1.2 2.4 2.5 2.4.9 0 1.4-.4 2.1-.4s1.2.4 2.1.4c1.3 0 2.5-.8 2.5-2.4 0-2.1-2-4.6-4.6-4.6z" /><Circle cx="5.8" cy="10.6" r="1.9" /><Circle cx="18.2" cy="10.6" r="1.9" /><Circle cx="9.2" cy="6" r="1.9" /><Circle cx="14.8" cy="6" r="1.9" /></>);
 export const ReceiptIcon = I(<><Path d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3z" /><Path d="M9 8.5h6M9 12h6M9 15.5h3.5" /></>);
+export const GridIcon = I(<><Rect x="4" y="4" width="7" height="7" rx="1.5" /><Rect x="13" y="4" width="7" height="7" rx="1.5" /><Rect x="4" y="13" width="7" height="7" rx="1.5" /><Rect x="13" y="13" width="7" height="7" rx="1.5" /></>);
+export const ListIcon = I(<><Path d="M9 6h11M9 12h11M9 18h11" /><Circle cx="5" cy="6" r="1.2" /><Circle cx="5" cy="12" r="1.2" /><Circle cx="5" cy="18" r="1.2" /></>);
+export const AlbumsIcon = I(<><Rect x="4.5" y="9" width="15" height="11" rx="2.5" /><Path d="M6.5 6.2h11M8.5 3.5h7" /></>);

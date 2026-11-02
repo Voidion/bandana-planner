@@ -1,5 +1,6 @@
 /* A small store: the whole shop is one immutable object. Every change makes a new object (so the engine's caches
    reset), re-renders the screens that read it, and saves to disk a moment later. */
+import { cutsForRun, runSeam } from './equip';
 import { useSyncExternalStore } from 'react';
 import { computePlan, isCutStep, stepsForRun, timerMs, todayDay } from '../lib/plan';
 import { emptyShop, migrate, SWATCHES } from './defaults';
@@ -276,6 +277,10 @@ export function cutRun(id: string, used: number[]) {
     }));
     const mats = computePlan(s, r0).cp?.mats.length || 0;
     if (mats) next = { ...next, tools: next.tools.map(t => (t.kind === 'blade' || t.kind === 'mat' ? { ...t, uses: t.uses + mats } : t)) };
+    // the blade in the machine takes a cut per piece; the mat a pass per mat
+    const cuts = cutsForRun(s, r0);
+    const e = next.equip;
+    next = { ...next, equip: { ...e, venture: { ...e.venture, mats: e.venture.mats + mats }, tools: e.tools.map(t => (t.id === e.venture.clamp ? { ...t, cuts: t.cuts + cuts } : t.kind === 'mat' && mats ? { ...t, cuts: t.cuts + mats } : t)) } };
     return withLog(next, 'cut ' + short(r), fabUse.map(u => `${u.used} yd ${u.name}`).join(', '));
   });
 }
@@ -486,6 +491,9 @@ export function finishRun(id: string) {
     next = mapRun(next, id, x => ({ ...x, supUse }));
     const sewHours = r.steps.filter(st => /sew|stitch|hem|serg|bind/i.test(st.name)).reduce((a, st) => a + (st.actual || st.est || 0), 0) / 60;
     if (sewHours > 0) next = { ...next, tools: next.tools.map(t => (t.kind === 'machine' ? { ...t, uses: round2(t.uses + sewHours) } : t)) };
+    const seam = runSeam(next, r);
+    const W = next.equip.sewing;
+    next = { ...next, equip: { ...next.equip, sewing: { ...W, mins: Math.round(W.mins + sewHours * 60), seam: round2(W.seam + seam.m), bodies: W.bodies + seam.b, straps: W.straps + seam.s } } };
     return withLog(
       { ...next, stock: [...next.stock, ...add], supplies: next.supplies.map(x => (take[x.id] ? { ...x, qty: Math.max(0, round2(x.qty - take[x.id])) } : x)) },
       'finished ' + short(r),

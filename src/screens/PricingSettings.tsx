@@ -11,7 +11,9 @@ import { Button, Card, Chip, Field, IconButton, NumField, Row, Section, Segmente
 import { useTheme } from '../ui/theme';
 import * as E from '../engine/engine';
 
-export function PricingSettings() {
+export type PricingPart = 'prices' | 'fees' | 'shipping' | 'bundles' | 'quote' | 'bills';
+export function PricingSettings({ part }: { part?: PricingPart } = {}) {
+  const show = (k: PricingPart) => !part || part === k;
   const shop = useShop();
   const t = useTheme();
   const c = shop.cfg;
@@ -22,6 +24,7 @@ export function PricingSettings() {
   const sizes = Object.entries(shop.sizes).filter(([, z]) => z.cw && z.cl);
   return (
     <View style={{ gap: 26, maxWidth: 900 }}>
+      {show('prices') ? (
       <Section title="Prices for your target">
         <Card style={{ gap: 14 }}>
           <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -59,7 +62,9 @@ export function PricingSettings() {
         ) : <T s="sub">Add cut sizes in Sizes & mats to see prices.</T>}
         <T s="small">Notions are thread, tags and other bits for one bandana. Materials are fabric (at your average cost a yard), the strap, notions, and supplies used per bandana and per order. Suggested prices cover those, card fees and your monthly bills, then add your profit target. Time isn’t counted as a cost.</T>
       </Section>
+      ) : null}
 
+      {show('fees') ? (
       <Section title="Card fees">
         <Card style={{ gap: 14 }}>
           <Segmented label="Fees" value={c.fees.on ? 'on' : 'off'} onChange={v => setCfg({ fees: { ...c.fees, on: v === 'on' } })} options={[['on', 'Count card fees'], ['off', 'No fees']]} />
@@ -73,7 +78,9 @@ export function PricingSettings() {
           <T s="small">Shopify and direct card sales pay the full rate; market sales assume about two thirds are by card.</T>
         </Card>
       </Section>
+      ) : null}
 
+      {show('shipping') ? (
       <Section title="Shipping">
         <Card style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
           <NumField label="Free over" value={c.ship.threshold} onChange={n => setCfg({ ship: { ...c.ship, threshold: n ?? 0 } })} prefix="$" width={120} hint="0 = never free" />
@@ -81,7 +88,9 @@ export function PricingSettings() {
           <NumField label="A label costs you" value={c.ship.cost} onChange={n => setCfg({ ship: { ...c.ship, cost: n ?? 0 } })} prefix="$" width={140} />
         </Card>
       </Section>
+      ) : null}
 
+      {show('bundles') ? (
       <Section title="Bundles" right={<T s="small">Deals you can put on a quote</T>}>
         <Card pad={false} style={{ overflow: 'hidden' }}>
           {shop.bundles.map((b, i) => (
@@ -100,7 +109,9 @@ export function PricingSettings() {
           </Row>
         </Card>
       </Section>
+      ) : null}
 
+      {show('quote') ? (
       <Section title="On every quote">
         <Card style={{ gap: 12 }}>
           <Field label="Shop name" value={shop.shopName} onChange={v => change(s => ({ ...s, shopName: v }))} />
@@ -114,7 +125,9 @@ export function PricingSettings() {
           <Field label="Good to know (one per line)" value={c.quote.notes.join('\n')} onChange={v => setCfg({ quote: { ...c.quote, notes: v.split('\n') } })} multiline />
         </Card>
       </Section>
+      ) : null}
 
+      {show('bills') ? (
       <Section title="Monthly bills" right={<T s="sub">{money(monthly)} a month · {money(E.overheadEach())} a bandana</T>}>
         <Card pad={false} style={{ overflow: 'hidden' }}>
           {shop.bills.map((b, i) => (
@@ -132,6 +145,7 @@ export function PricingSettings() {
         </Card>
         <NumField label="Bandanas in a usual month" value={c.piecesPerMonth} onChange={n => setCfg({ piecesPerMonth: Math.max(1, Math.round(n ?? 80)) })} width={160} hint="Bills are spread across these" />
       </Section>
+      ) : null}
     </View>
   );
 }

@@ -29,9 +29,28 @@ export function textWidth(s: string, size: number, bold = false) {
   return (w * size) / 1000;
 }
 
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+/** base64 to hex text (an ASCII-safe way to carry the JPEG bytes inside the PDF) */
+export function b64ToHex(b: string) {
+  const clean = b.replace(/[^A-Za-z0-9+/]/g, '');
+  let out = '';
+  let bits = 0,
+    val = 0;
+  for (const ch of clean) {
+    val = (val << 6) | B64.indexOf(ch);
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out += ((val >> bits) & 255).toString(16).padStart(2, '0');
+    }
+  }
+  return out;
+}
+
 export class Pdf {
   private pages: string[] = [];
   private cur = '';
+  private imgs: { hex: string; w: number; h: number }[] = [];
   readonly W = 612;
   readonly H = 792;
   constructor() {
@@ -75,6 +94,14 @@ export class Pdf {
   rect(x: number, y: number, w: number, h: number, fill: [number, number, number]) {
     this.cur += `${fill.join(' ')} rg ${x} ${this.H - y - h} ${w} ${h} re f\n`;
   }
+  /** A JPEG (base64) drawn at x, y (from the top), w by h points; px is its pixel size */
+  jpeg(x: number, y: number, w: number, h: number, b64: string, px: [number, number]) {
+    const hex = b64ToHex(b64);
+    if (!hex.startsWith('ffd8')) return false;
+    this.imgs.push({ hex, w: px[0], h: px[1] });
+    this.cur += `q ${w} 0 0 ${h} ${x} ${this.H - y - h} cm /Im${this.imgs.length} Do Q\n`;
+    return true;
+  }
   /** The finished file, as ASCII text */
   build(title: string) {
     this.pages.push(this.cur);
@@ -85,8 +112,14 @@ export class Pdf {
     objs[2] = `<< /Type /Pages /Kids [${kids}] /Count ${n} >>`;
     objs[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
     objs[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+    const img0 = 5 + n * 2;
+    this.imgs.forEach((im, k) => {
+      const data = im.hex + '>';
+      objs[img0 + k] = `<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter [/ASCIIHexDecode /DCTDecode] /Length ${data.length} >>\nstream\n${data}\nendstream`;
+    });
+    const xo = this.imgs.length ? ` /XObject << ${this.imgs.map((_, k) => `/Im${k + 1} ${img0 + k} 0 R`).join(' ')} >>` : '';
     this.pages.forEach((c, i) => {
-      objs[5 + i * 2] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${this.W} ${this.H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${6 + i * 2} 0 R >>`;
+      objs[5 + i * 2] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${this.W} ${this.H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xo} >> /Contents ${6 + i * 2} 0 R >>`;
       objs[6 + i * 2] = `<< /Length ${c.length} >>\nstream\n${c}\nendstream`;
     });
     const info = objs.length;

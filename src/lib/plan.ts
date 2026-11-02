@@ -39,7 +39,7 @@ export function sync(shop: Shop) {
     ledger: shop.sales.map(e => ({ ...e, d: rel(e.day) ?? 0, pays: e.pays.map(p => ({ ...p, d: rel(p.day) ?? 0 })), due: e.due ? rel(e.due) : undefined })),
     quotes: [],
     events: [],
-    cal: shop.cal.map(e => ({ ...e, d: rel(e.day) ?? 0, allDay: true, off: e.kind !== 'other' })),
+    cal: shop.cal.map(e => ({ ...e, d: rel(e.day) ?? 0, allDay: true, off: e.kind === 'market' || e.kind === 'off' })),
     cfg: { ...shop.cfg, shopName: shop.shopName },
   });
 }
@@ -244,4 +244,54 @@ export function listingCsv(shop: Shop, r: Run): { name: string; csv: string } {
 export function listingPlainText(shop: Shop, r: Run): string {
   sync(shop);
   return E.listingText(engineRun(r));
+}
+
+/* ---------- strip width ---------- */
+export const CUT_MIN_W = 6;
+const lastSynced = () => lastShop;
+/** Strip widths that divide the bolt exactly (quarter inches, within the mat) */
+export function cutExact(shop: Shop) {
+  const c = shop.cfg.cut;
+  const vm = MATS.find(m => m.id === c.mat) || MATS[1];
+  const mx = Math.min(vm.mw, c.bolt);
+  const out: number[] = [];
+  for (let n = 1; n <= 12; n++) {
+    const w = c.bolt / n;
+    if (w >= CUT_MIN_W && w <= mx + 1e-9 && Math.abs(w * 4 - Math.round(w * 4)) < 1e-6) out.push(Math.round(w * 100) / 100);
+  }
+  return out.sort((a, b) => a - b);
+}
+/** The strip width that uses the least fabric for the runs waiting to be cut (or a usual 12 M + 6 L run), fewest mats on a tie */
+export function leastWasteWidth(shop: Shop): { w: number; wst: number; mats: number } | null {
+  const c = shop.cfg.cut;
+  const vm = MATS.find(m => m.id === c.mat) || MATS[1];
+  const jobs = shop.runs.filter(r => r.status !== 'done' && !r.cut && Object.values(r.qty || {}).some(Boolean));
+  const list = jobs.length ? jobs.map(r => ({ qty: r.qty, body: shop.fabrics.find(f => f.id === r.body) || null, strap: shop.fabrics.find(f => f.id === r.ties) || null, prod: r.prod || {} })) : [{ qty: { M: 12, L: 6 } as Record<string, number>, body: null, strap: null, prod: {} }];
+  const mx = Math.min(vm.mw, c.bolt);
+  const was = lastSynced();
+  let best: { w: number; fabA: number; wst: number; mats: number } | null = null;
+  try {
+    for (let w = CUT_MIN_W; w <= mx + 1e-9; w += 0.25) {
+      sync({ ...shop, cfg: { ...shop.cfg, cut: { ...c, width: w } } });
+      let fabA = 0, pc = 0, mats = 0, lost = 0, re = 0;
+      for (const j of list) {
+        const qty: Record<string, number> = {};
+        Object.entries(j.qty).forEach(([k, n]) => { if (n && sizeReady(shop, k)) qty[k] = n; });
+        const p = E.cutPlan(qty, { body: j.body, strap: j.strap, prod: j.prod });
+        fabA += (p.cutArea || 0) + (p.sideArea || 0);
+        pc += p.pieceArea || 0;
+        re += p.reuse || 0;
+        mats += (p.mats || []).length;
+        lost += p.tooBig || 0;
+      }
+      if (lost) continue;
+      fabA -= re;
+      const wst = fabA + re ? 1 - (pc + re) / (fabA + re) : 1;
+      if (!best || fabA < best.fabA - 1e-6 || (Math.abs(fabA - best.fabA) < 1e-6 && mats < best.mats)) best = { w, fabA, wst, mats };
+    }
+  } finally {
+    lastShop = null;
+    sync(was || shop);
+  }
+  return best ? { w: best.w, wst: best.wst, mats: best.mats } : null;
 }

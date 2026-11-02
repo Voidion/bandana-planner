@@ -13,6 +13,7 @@ type FilesModule = {
   openTextFile(title: string, kind: string, pattern: string): Promise<string>;
   openPath?(path: string): Promise<boolean>;
   pickPhotos?(): Promise<string>;
+  pickLogo?(): Promise<string>;
   notify?(title: string, body: string): Promise<boolean>;
   deleteFile?(path: string): Promise<boolean>;
   copyFiles?(paths: string[], folder: string): Promise<string>;
@@ -138,6 +139,45 @@ export async function pickPhotos(): Promise<{ src: string; name: string }[]> {
         }));
       }
       resolve(out);
+    };
+    input.click();
+  });
+}
+/** Your logo for quotes: one picture, centre-cropped to a 256px square JPEG on white. jpg is its base64, for the PDF. */
+export async function pickLogo(): Promise<{ src: string; jpg: string } | null> {
+  if (files && files.pickLogo) {
+    const raw = await files.pickLogo();
+    if (!raw) return null;
+    const o = JSON.parse(raw) as { path: string; jpg: string };
+    return { src: 'file:///' + o.path.replace(/\\/g, '/'), jpg: o.jpg };
+  }
+  if (!web.document) return null;
+  return new Promise(resolve => {
+    const input = web.document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const f = (input.files || [])[0];
+      if (!f) return resolve(null);
+      const r = new web.FileReader();
+      r.onload = () => {
+        const img = new web.Image();
+        img.onload = () => {
+          const N = 256;
+          const c = web.document.createElement('canvas');
+          c.width = c.height = N;
+          const g = c.getContext('2d');
+          g.fillStyle = '#FFFFFF';
+          g.fillRect(0, 0, N, N);
+          const sd = Math.min(img.width, img.height);
+          g.drawImage(img, (img.width - sd) / 2, (img.height - sd) / 2, sd, sd, 0, 0, N, N);
+          const url = c.toDataURL('image/jpeg', 0.88);
+          resolve({ src: url, jpg: url.split(',')[1] });
+        };
+        img.onerror = () => resolve(null);
+        img.src = String(r.result);
+      };
+      r.readAsDataURL(f);
     };
     input.click();
   });

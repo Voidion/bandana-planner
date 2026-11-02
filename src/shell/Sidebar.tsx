@@ -5,12 +5,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { clock, mins } from '../lib/format';
 import { timerMs } from '../lib/plan';
 import { alertsNow, leftMins, unseenCount } from '../state/alerts';
-import { toolDue } from '../state/planning';
+import { taskState, toolState, usedTool } from '../state/equip';
 import { isLate, orderCount } from '../state/selling';
 import { dataFolderPath, openPath } from '../state/storage';
 import { pauseTimer, setCfg, stopTimer, useSaveState, useShop } from '../state/store';
 import type { Shop } from '../state/types';
-import { AutoThemeIcon, BatchesIcon, BellIcon, BoxIcon, CartIcon, CoinIcon, DocIcon, MoonIcon, MoreIcon, PauseIcon, PeopleIcon, PhotoIcon, PlayIcon, PlusIcon, PriceIcon, PulseIcon, RestockIcon, RunsIcon, SearchIcon, ShelfIcon, SlidersIcon, SplitIcon, SpoolIcon, StopIcon, SunIcon, TimeIcon, TodayIcon, TrendIcon, TruckIcon, WalletIcon, WrenchIcon, CalIcon } from '../ui/icons';
+import { AutoThemeIcon, BatchesIcon, BellIcon, BoxIcon, CartIcon, CoinIcon, DocIcon, MoonIcon, MoreIcon, PauseIcon, PeopleIcon, PhotoIcon, PlayIcon, PlusIcon, PriceIcon, PulseIcon, RunsIcon, SearchIcon, ShelfIcon, SlidersIcon, SplitIcon, StopIcon, SunIcon, TimeIcon, TodayIcon, TrendIcon, WalletIcon, WrenchIcon, CalIcon } from '../ui/icons';
 import { openMenuAt, showSnack } from '../ui/kit';
 import { F, useTheme } from '../ui/theme';
 import { useNow } from '../ui/useNow';
@@ -21,8 +21,10 @@ type NavItem = [Route, string, Ic];
 export const NAV: [string | null, NavItem[]][] = [
   [null, [['today', 'Today', TodayIcon], ['runs', 'Runs', RunsIcon], ['workflow', 'Workflow', TimeIcon], ['schedule', 'Schedule', CalIcon]]],
   ['Sell', [['orders', 'Orders', CartIcon], ['quotes', 'Quotes', PriceIcon], ['customers', 'Customers', PeopleIcon], ['sales', 'Payments', WalletIcon], ['stock', 'Finished stock', BoxIcon], ['market', 'Market day', CoinIcon]]],
-  ['Shop', [['fabric', 'Fabric', ShelfIcon], ['supplies', 'Supplies', SpoolIcon], ['restock', 'Restock', RestockIcon], ['suppliers', 'Suppliers', TruckIcon], ['photos', 'Photos', PhotoIcon], ['trends', 'Trends', TrendIcon], ['reports', 'Reports', DocIcon], ['maintenance', 'Maintenance', WrenchIcon], ['activity', 'Activity', PulseIcon]]],
+  ['Shop', [['fabric', 'Fabric', ShelfIcon], ['photos', 'Photos', PhotoIcon], ['trends', 'Trends', TrendIcon], ['reports', 'Reports', DocIcon], ['maintenance', 'Maintenance', WrenchIcon], ['activity', 'Activity', PulseIcon]]],
 ];
+/** Screens reached from inside another section light up that section */
+const PARENT: Partial<Record<Route, Route>> = { supplies: 'fabric', restock: 'fabric', suppliers: 'fabric' };
 const RAIL_KEEP: Route[] = ['today', 'runs', 'workflow', 'schedule', 'orders', 'fabric'];
 /** Sections that use the icon rail so their content gets the room */
 export const COMPACT: Route[] = ['today', 'runs', 'schedule'];
@@ -33,7 +35,7 @@ function badges(s: Shop): Partial<Record<Route, Badge>> {
   const toPlan = s.orders.filter(o => o.status !== 'delivered' && !o.run && !o.fromStock.length && orderCount(o) > 0).length;
   const owed = s.sales.filter(isLate).length;
   const low = s.fabrics.filter(f => !f.offcut && f.low > 0 && f.yards <= f.low && !(f.onOrder > 0)).length;
-  const mt = s.tools.filter(toolDue).length;
+  const mt = s.equip.tools.filter(t => usedTool(s.equip, t) && toolState(t).tone !== 'ok').length + s.equip.tasks.filter(t => taskState(s.equip, t).due).length;
   return {
     runs: late ? { tone: 'warn', text: `${late} late` } : null,
     orders: toPlan ? { tone: 'tint', text: `${toPlan} to plan` } : null,
@@ -87,7 +89,7 @@ export function Sidebar(p: NavProps & { peek?: boolean; onClosePeek?: () => void
           <View key={g || 'top'} style={{ gap: 4 }}>
             {g ? <Text style={{ paddingTop: 18, paddingHorizontal: 12, paddingBottom: 6, fontSize: F.f13, fontWeight: '600', color: t.text3, textTransform: 'uppercase', letterSpacing: 0.6 }}>{g}</Text> : null}
             {items.map(([r, label, Icon]) => (
-              <NavRow key={r} on={p.route === r} label={label} icon={c => <Icon color={c} size={22} />} badge={b[r] || null} onPress={() => p.go(r)} />
+              <NavRow key={r} on={(PARENT[p.route] || p.route) === r} label={label} icon={c => <Icon color={c} size={22} />} badge={b[r] || null} onPress={() => p.go(r)} />
             ))}
           </View>
         ))}
@@ -261,7 +263,7 @@ export function Rail(p: NavProps & { onMore: () => void }) {
       <View style={{ width: 40, height: 1, backgroundColor: t.line, marginVertical: 5 }} />
       <ScrollView style={{ flex: 1, alignSelf: 'stretch', overflow: 'hidden' }} contentContainerStyle={{ alignItems: 'center', gap: 4 }}>
         {keep.map(([r, label, Icon]) => (
-          <RailBtn key={r} on={p.route === r} label={label} onPress={() => p.go(r)}>
+          <RailBtn key={r} on={(PARENT[p.route] || p.route) === r} label={label} onPress={() => p.go(r)}>
             {c => <Icon color={c} size={24} />}
             {dot(b[r] || null)}
           </RailBtn>

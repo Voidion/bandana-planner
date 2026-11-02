@@ -73,6 +73,8 @@ export interface Fabric {
   lead?: number | null;
   /** For an offcut: what it was left over from */
   from?: string;
+  /** This fabric's own product page */
+  url?: string;
 }
 
 /** Something else you make from fabric, like bows. Each style is a variant; a part is an add-on piece (a loop, a clip). */
@@ -253,9 +255,13 @@ export interface CalEvent {
   day: Day;
   title: string;
   /** market and off take the day's free hours out of run planning */
-  kind: 'market' | 'off' | 'other';
+  kind: 'market' | 'off' | 'pickup' | 'sew' | 'other';
   days: number;
   notes: string;
+  /** Start time "HH:MM" (none = all day) and length in minutes */
+  time?: string;
+  dur?: number;
+  loc?: string;
 }
 
 export interface Photo {
@@ -563,10 +569,14 @@ export interface Shop {
   /** Reminders already sent (key → day), so each is sent once */
   notified: Record<string, Day>;
   /** Reminders you dismissed, snoozed (until when) or have seen */
+  /** Cricut Venture and sewing machine: blades, mats, upkeep */
+  equip: import('./equip').Equip;
   /** Split view pairs you saved */
   pairs?: { id: string; name: string; left: string; right: string; ratio: number }[];
   alertSt?: { dis: Record<string, Day>; snz: Record<string, number>; seen: Record<string, Day> };
   goals: { income: number; hours: number };
+  /** Your logo at the top of quotes (a 256px square JPEG; jpg is its base64 for the PDF) */
+  logo?: { src: string; jpg: string } | null;
   usage: UsageLine[];
   products: Product[];
 }

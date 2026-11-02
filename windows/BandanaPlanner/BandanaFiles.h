@@ -6,6 +6,8 @@
 //   openPath(path)                  -> opens a file in its usual app (a quote PDF in the PDF viewer)
 //   pickPhotos()                    -> Open dialog for pictures (several at once); copies each into the photos folder
 //                                      and returns [{"path","name","bytes"}] as JSON ("[]" if cancelled)
+//   pickLogo()                      -> Open dialog for one picture; centre-cropped to a 256px square on white, saved as
+//                                      logo.jpg beside shop.json; returns {"path","jpg"} (jpg is base64) or "" if cancelled
 //   deleteFile(path)                -> removes a photo file for good (only inside the photos folder)
 //   notify(title, body)             -> a Windows notification (reminders)
 //   copyFiles(paths, folder)        -> copies files into Documents\Bandana Planner\<folder>, returns the folder
@@ -22,6 +24,7 @@
 #include <ShlObj.h>
 #include <shellapi.h>
 #include <commdlg.h>
+#include <wincodec.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -31,6 +34,7 @@
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "comdlg32.lib")
+#pragma comment(lib, "windowscodecs.lib")
 
 namespace BandanaPlanner {
 
@@ -302,6 +306,109 @@ struct BandanaFiles {
       promise.Resolve(out);
     } catch (...) {
       promise.Reject(L"Couldn't add those photos");
+    }
+  }
+
+  REACT_METHOD(PickLogo, L"pickLogo")
+  void PickLogo(winrt::Microsoft::ReactNative::ReactPromise<std::string> promise) noexcept {
+    try {
+      std::wstring filter = L"Pictures (*.jpg;*.jpeg;*.png;*.gif;*.bmp)";
+      filter.push_back(L'\0');
+      filter += L"*.jpg;*.jpeg;*.png;*.gif;*.bmp";
+      filter.push_back(L'\0');
+      filter.push_back(L'\0');
+      std::vector<wchar_t> buf(4096, L'\0');
+      OPENFILENAMEW ofn{};
+      ofn.lStructSize = sizeof(ofn);
+      ofn.hwndOwner = GetForegroundWindow();
+      ofn.lpstrFilter = filter.c_str();
+      ofn.lpstrFile = buf.data();
+      ofn.nMaxFile = static_cast<DWORD>(buf.size());
+      ofn.lpstrTitle = L"Choose your logo";
+      ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
+      if (!GetOpenFileNameW(&ofn)) {
+        promise.Resolve("");
+        return;
+      }
+      HRESULT ci = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+      std::string out;
+      {
+        winrt::com_ptr<IWICImagingFactory> wic;
+        winrt::check_hresult(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wic.put())));
+        winrt::com_ptr<IWICBitmapDecoder> dec;
+        winrt::check_hresult(wic->CreateDecoderFromFilename(buf.data(), nullptr, GENERIC_READ, WICDecodeMetadataCacheOnLoad, dec.put()));
+        winrt::com_ptr<IWICBitmapFrameDecode> frame;
+        winrt::check_hresult(dec->GetFrame(0, frame.put()));
+        winrt::com_ptr<IWICFormatConverter> conv;
+        winrt::check_hresult(wic->CreateFormatConverter(conv.put()));
+        winrt::check_hresult(conv->Initialize(frame.get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.0, WICBitmapPaletteTypeCustom));
+        UINT w = 0, h = 0;
+        winrt::check_hresult(conv->GetSize(&w, &h));
+        UINT side = (std::min)(w, h);
+        WICRect rc{static_cast<INT>((w - side) / 2), static_cast<INT>((h - side) / 2), static_cast<INT>(side), static_cast<INT>(side)};
+        winrt::com_ptr<IWICBitmapClipper> clip;
+        winrt::check_hresult(wic->CreateBitmapClipper(clip.put()));
+        winrt::check_hresult(clip->Initialize(conv.get(), &rc));
+        const UINT N = 256;
+        winrt::com_ptr<IWICBitmapScaler> sc;
+        winrt::check_hresult(wic->CreateBitmapScaler(sc.put()));
+        winrt::check_hresult(sc->Initialize(clip.get(), N, N, WICBitmapInterpolationModeFant));
+        std::vector<BYTE> px(N * N * 4);
+        winrt::check_hresult(sc->CopyPixels(nullptr, N * 4, static_cast<UINT>(px.size()), px.data()));
+        // Flatten onto white (the pixels are premultiplied)
+        std::vector<BYTE> rgb(N * N * 3);
+        for (UINT i = 0; i < N * N; i++) {
+          BYTE a = px[i * 4 + 3];
+          for (int c = 0; c < 3; c++) rgb[i * 3 + c] = static_cast<BYTE>((std::min)(255, px[i * 4 + c] + (255 - a)));
+        }
+        winrt::com_ptr<IWICBitmap> flat;
+        winrt::check_hresult(wic->CreateBitmapFromMemory(N, N, GUID_WICPixelFormat24bppBGR, N * 3, static_cast<UINT>(rgb.size()), rgb.data(), flat.put()));
+        winrt::com_ptr<IStream> mem;
+        winrt::check_hresult(CreateStreamOnHGlobal(nullptr, TRUE, mem.put()));
+        winrt::com_ptr<IWICBitmapEncoder> enc;
+        winrt::check_hresult(wic->CreateEncoder(GUID_ContainerFormatJpeg, nullptr, enc.put()));
+        winrt::check_hresult(enc->Initialize(mem.get(), WICBitmapEncoderNoCache));
+        winrt::com_ptr<IWICBitmapFrameEncode> fe;
+        winrt::com_ptr<IPropertyBag2> props;
+        winrt::check_hresult(enc->CreateNewFrame(fe.put(), props.put()));
+        winrt::check_hresult(fe->Initialize(props.get()));
+        winrt::check_hresult(fe->SetSize(N, N));
+        WICPixelFormatGUID fmt = GUID_WICPixelFormat24bppBGR;
+        winrt::check_hresult(fe->SetPixelFormat(&fmt));
+        winrt::check_hresult(fe->WriteSource(flat.get(), nullptr));
+        winrt::check_hresult(fe->Commit());
+        winrt::check_hresult(enc->Commit());
+        HGLOBAL hg = nullptr;
+        winrt::check_hresult(GetHGlobalFromStream(mem.get(), &hg));
+        STATSTG st{};
+        winrt::check_hresult(mem->Stat(&st, STATFLAG_NONAME));
+        size_t len = static_cast<size_t>(st.cbSize.QuadPart);
+        const BYTE *data = static_cast<const BYTE *>(GlobalLock(hg));
+        std::string bytes(reinterpret_cast<const char *>(data), len);
+        GlobalUnlock(hg);
+        fs::path dst = DataFolder() / (L"logo-" + std::to_wstring(GetTickCount64()) + L".jpg");
+        {
+          std::ofstream f(dst, std::ios::binary | std::ios::trunc);
+          f.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+        }
+        static const char *B = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        std::string b64;
+        b64.reserve((len + 2) / 3 * 4);
+        for (size_t i = 0; i < len; i += 3) {
+          unsigned v = static_cast<unsigned char>(bytes[i]) << 16;
+          if (i + 1 < len) v |= static_cast<unsigned char>(bytes[i + 1]) << 8;
+          if (i + 2 < len) v |= static_cast<unsigned char>(bytes[i + 2]);
+          b64 += B[(v >> 18) & 63];
+          b64 += B[(v >> 12) & 63];
+          b64 += i + 1 < len ? B[(v >> 6) & 63] : '=';
+          b64 += i + 2 < len ? B[v & 63] : '=';
+        }
+        out = "{\"path\":\"" + JsonEscape(Narrow(dst.wstring())) + "\",\"jpg\":\"" + b64 + "\"}";
+      }
+      if (SUCCEEDED(ci)) CoUninitialize();
+      promise.Resolve(out);
+    } catch (...) {
+      promise.Reject(L"That picture couldn't be read");
     }
   }
 

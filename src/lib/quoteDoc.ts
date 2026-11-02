@@ -51,8 +51,10 @@ export function quotePdf(shop: Shop, q: Quote): string {
     Rt = 558,
     accent: [number, number, number] = [0.541, 0.294, 0.047],
     mute: [number, number, number] = [0.37, 0.37, 0.39];
-  p.rect(L, 48, 40, 40, accent);
-  p.text(L + 20, 75, (d.shop.trim()[0] || 'S').toUpperCase(), { size: 20, bold: true, color: [1, 1, 1], align: 'center' });
+  if (!(shop.logo && shop.logo.jpg && p.jpeg(L, 48, 40, 40, shop.logo.jpg, [256, 256]))) {
+    p.rect(L, 48, 40, 40, accent);
+    p.text(L + 20, 75, (d.shop.trim()[0] || 'S').toUpperCase(), { size: 20, bold: true, color: [1, 1, 1], align: 'center' });
+  }
   p.text(L + 52, 64, d.shop, { size: 14, bold: true });
   p.text(L + 52, 80, 'Handmade dog bandanas', { size: 10, color: mute });
   p.text(Rt, 64, `Quote ${d.no}`, { size: 12, bold: true, align: 'right' });

@@ -16,12 +16,14 @@ What's in it so far:
   - **Payments**: overdue, waiting on payment and paid by month; mark paid, part payments, due dates and a payment reminder email.
   - **Finished stock**: ready to sell by size, orders you can fill now, what's set aside, stock by run and how ready you are for the next market.
   - **Market day**: plan it (packing against your goal, date, hours, booth fee and miles), tap sales card or cash, undo any sale, and a summary once it's recorded.
-- **Schedule**: four weeks of free hours with the runs fitted in, earliest due first, due dates and finish dates on the calendar, and markets or days off that take a day's hours out.
-- **Reports**: trends by month, what sells best, your real time a bandana; sales and profit by channel, size, customer and run, before and after bills; a tax summary; and goals.
+- **Schedule**: Day, Week, Month and List views of everything with a date (run due dates, orders to plan, market days, quotes ending, your own events), filters for each, and a quick-add line that reads plain English ("Market Sat 8am-2pm at Riverside", "pickup tomorrow 3pm", "day off friday"). Beside it: the chosen day and how the next 7 days fill your free hours, with any run that would finish late. Markets and days off take that day's hours out of run planning.
+- **Trends**: this month against your goals, money so far, your pace a bandana, by hour and day, step times against your templates (update a template to match), fabric a bandana and quality.
+- **Reports**: sales and profit by month, channel, customer, run, size and style, before and after bills, for the year, 3 months or the month, and a tax summary.
 - **Photos**: add pictures (copied into `%LOCALAPPDATA%\BandanaPlanner\photos`), link them to runs, fabric and customers, favorites, albums and client albums you can save to a folder (Documents › Bandana Planner › Albums), a viewer, and Recently deleted for 30 days.
 - **Right-click menus**: right-click a run, fabric, order, customer, sale, supply, quote or photo for quick actions (open, start, plan again, mark ordered or arrived, record a payment, duplicate, favorite, delete). Right-click a run step to mark it done, start or stop its timer, edit it, move it up or down, or remove it. Esc closes the menu.
 - **Search, New and shortcuts**: search runs, fabric, orders, quotes, customers and their dogs, supplies and sales (Ctrl + K); the New menu (Ctrl + N); Ctrl + 1–9 for Today, Runs, Workflow, Schedule, Orders, Quotes, Customers, Payments and Fabric. **Settings › Shop** has which reminders you want and Windows notifications (daily ones from the hour you pick), the shop name, light or dark (or match Windows), the shortcut list and your data folder.
-- **Maintenance and Activity**: blades and mats count mats cut, machines count sewing hours; a full log of what you've done.
+- **Maintenance**: the Cricut Venture (which blade is in the machine, cuts on it since new, when the next check is due and whether the runs waiting to be cut will reach it; Check it, Replace with why, and after two blades the lifespan your own blades really last, with Use it) and the sewing machine (seam sewn and hours, worked out from each size). Upkeep tasks count mats cut, seam sewn, hours or days.
+- **Activity**: what you've done, today and this week, searchable, filtered by kind (work, money, fabric, quotes and more) and grouped by day; each entry opens what it's about.
 - **Runs**: plan a batch (sizes, fabric, due date, workflow template). The app lays every piece out on Cricut Venture mats (the same planner as the prototype, so layouts are identical), shows the yards needed against the shelf, works out materials, time and profit, and saves one SVG per mat for Design Space. **Record the cut** takes what you really used off the shelf (Undo puts it back). Work through the steps with tick boxes and a timer (it keeps running if you close the app, and asks if it's still going after a while), enter times by hand, log defects, then **Finish run** to move the bandanas into stock and see the review: each step against its plan, hours, fabric and profit.
 - **Shopify listing** (from any run): title, description and tags written from the run, prices and stock per size, a checklist, and a Shopify product CSV that makes a draft product with every size (Documents › Bandana Planner › Listings).
 - **Fabric**: every bolt with yards on the shelf, cost per yard, a low-stock warning, print direction, where you buy it, and notes.
@@ -33,7 +35,7 @@ What's in it so far:
 - **Market day**: big tiles to tap as things sell, card or cash, a different-price sale, undo, a running total against your goal, and one Market sale when you close up (card fees on the card part, booth fee as a cost).
 - **Import from Shopify** (in Sales): open the orders CSV export, match each product to your sizes and styles, and import; unfulfilled orders become orders to make, fulfilled ones past sales, never twice.
 - **Finished stock**: bandanas ready to sell, by size and by run, with counts you can fix by hand.
-- **Settings**: sizes (cut measurements, price, time each), straps, mat and bolt; workflow templates (steps and minutes per bandana, with your real timed pace next to each); free hours per day; timer check-in.
+- **Settings**: every setting in one grouped list with its current value, and the one you pick open beside it: shop name, monthly goals, free hours; what clients see on a quote (your logo, cropped square, at the top of the quote and its PDF, and your contact details); profit target, card fees, shipping, bundles, monthly bills; sizes and straps, cutting and mats (with **Least waste**, which tries every strip width for the runs waiting to be cut and picks the one that uses the least fabric, and the widths that divide your bolt exactly), cut files, what new fabric starts with, products, workflow templates; reminders, timers, shortcuts and your data.
 
 The window opens at 1280 × 820 (maximised on smaller screens) and can't be made smaller than 1024 × 700.
 
@@ -42,7 +44,7 @@ The window opens at 1280 × 820 (maximised on smaller screens) and can't be made
 - Your shop: `%LOCALAPPDATA%\BandanaPlanner\shop.json`, saved a moment after every change. The previous version is kept next to it as `shop.json.bak`.
 - Cut files: `Documents\Bandana Planner\<plan name>\`, one SVG per mat, sized in inches.
 - Quotes: `Documents\Bandana Planner\Quotes\` as PDFs.
-- Photos: `%LOCALAPPDATA%\BandanaPlanner\photos\`.
+- Photos: `%LOCALAPPDATA%\BandanaPlanner\photos\`. Your quote logo sits beside `shop.json` as `logo-….jpg`.
 
 ## Getting the installer
 

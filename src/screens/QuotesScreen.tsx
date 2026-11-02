@@ -1,7 +1,7 @@
 /* Quotes, laid out like the prototype: grouped cards beside the quote — who it's for, the receipt, items, what it
    leaves you, delivery, deal and deposit. Preview what the client sees, save it as a PDF, send it (prices lock). */
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { dayLabel, mins, money, money0, plural, relDue, yd } from '../lib/format';
 import { addDays, computePlan, itemName, quoteTotals, rel, todayDay } from '../lib/plan';
 import { quoteDoc, quotePdf } from '../lib/quoteDoc';
@@ -380,7 +380,7 @@ function ClientView({ q, onClose, footer }: { q: Quote; onClose: () => void; foo
       <ScrollView style={{ maxHeight: 560 }}>
         <View style={{ backgroundColor: '#FFFFFF', borderRadius: 12, padding: 28, gap: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#8A4B0C', alignItems: 'center', justifyContent: 'center' }}><T style={{ fontSize: 20, fontWeight: '700' }} color="#fff">{(d.shop.trim()[0] || 'S').toUpperCase()}</T></View>
+            {shop.logo ? <Image source={{ uri: shop.logo.src }} style={{ width: 40, height: 40, borderRadius: 10 }} /> : <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#8A4B0C', alignItems: 'center', justifyContent: 'center' }}><T style={{ fontSize: 20, fontWeight: '700' }} color="#fff">{(d.shop.trim()[0] || 'S').toUpperCase()}</T></View>}
             <View style={{ flex: 1 }}><T style={{ fontWeight: '700' }} color={ink}>{d.shop}</T><T s="small" color={mute}>Handmade dog bandanas</T></View>
             <View style={{ alignItems: 'flex-end' }}><T style={{ fontWeight: '700' }} color={ink}>Quote {d.no}</T><T s="small" color={mute}>{d.date}</T></View>
           </View>

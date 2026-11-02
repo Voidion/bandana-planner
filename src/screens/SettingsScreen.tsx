@@ -1,28 +1,198 @@
-/* Settings: sizes and mats, workflow templates, free hours, timers. */
+/* Settings, laid out like the prototype: every setting as a row in a grouped list (with its current value), and the
+   one you pick open beside it. */
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
-import { clock, fmtN, mins } from '../lib/format';
-import { pace, timerMs, tplMinsFor, tplPerBandana } from '../lib/plan';
-import { addTemplate, closeOutTimer, deleteTemplate, editTemplate, restoreTemplate, restoreTimer, setCfg, useShop } from '../state/store';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { clock, fmtN, inch, mins, money, money0 } from '../lib/format';
+import { MATS, pace, timerMs, tplMinsFor, tplPerBandana } from '../lib/plan';
+import { setGoals } from '../state/planning';
+import { pickLogo } from '../state/storage';
+import { addTemplate, change, closeOutTimer, deleteTemplate, editTemplate, restoreTemplate, restoreTimer, setCfg, useShop } from '../state/store';
 import type { Template } from '../state/types';
-import { DownIcon, PlusIcon, TrashIcon, UpIcon } from '../ui/icons';
+import { BellIcon, CalIcon, ChevIcon, ClockIcon, CoinIcon, DownIcon, FabricIcon, GearIcon, PlusIcon, PriceIcon, RulerIcon, ScissorsIcon, StoreIcon, TagIcon, TimeIcon, TrashIcon, TrendIcon, TruckIcon, UpIcon, WalletIcon, WorkflowIcon, BoxIcon, FolderIcon, ReceiptIcon } from '../ui/icons';
 import { Button, Card, Chip, Field, IconButton, NumField, Row, Section, Segmented, showSnack, T } from '../ui/kit';
-import { F, R, useTheme } from '../ui/theme';
+import { Note, PageHead } from '../ui/proto';
+import { F, R, shadow, useTheme } from '../ui/theme';
 import { useNow } from '../ui/useNow';
 import { SetupScreen } from './SetupScreen';
 import { ShopSettings } from './AppWide';
 import { ProductsSettings } from './ProductsSettings';
 import { PricingSettings } from './PricingSettings';
 
-export type SettingsTab = 'shop' | 'sizes' | 'products' | 'pricing' | 'templates' | 'hours' | 'timers';
+export type SettingsTab =
+  | 'shop' | 'goals' | 'hours' | 'quote'
+  | 'prices' | 'pricing' | 'fees' | 'shipping' | 'bundles' | 'bills'
+  | 'sizes' | 'cutting' | 'cutfiles' | 'fabric' | 'products' | 'templates'
+  | 'reminders' | 'timers' | 'shortcuts' | 'data';
+type Ico = (p: { color: string; size: number }) => React.ReactElement;
 
 export function SettingsScreen({ tab, setTab, openRun }: { tab: SettingsTab; setTab: (t: SettingsTab) => void; openRun: (id: string) => void }) {
+  const shop = useShop();
+  const t = useTheme();
+  const [w, setW] = useState(1200);
+  const [showDetail, setShowDetail] = useState(false);
+  const cur: SettingsTab = tab === 'pricing' ? 'prices' : tab;
+  const c = shop.cfg;
+  const vm = MATS.find(m => m.id === c.cut.mat) || MATS[1];
+  const monthly = shop.bills.reduce((a, b) => a + (b.basis === 'year' ? b.amt / 12 : b.amt), 0);
+  const unset = Object.values(shop.sizes).find(z => !z.cw || !z.cl || z.price == null);
+  const contacts = [c.quote.email, c.quote.phone, c.quote.insta, c.quote.site].filter(Boolean).length;
+  const GROUPS: [string, [SettingsTab, string, Ico, string][], string?][] = [
+    ['Shop', [['shop', 'Shop name', StoreIcon, shop.shopName || 'Your shop'], ['goals', 'Monthly goals', TrendIcon, money0(shop.goals.income)], ['hours', 'Free hours', ClockIcon, `${fmtN(c.hours.reduce((a, b) => a + b, 0))}h a week`]], 'Your shop name goes on every quote you send.'],
+    ['Quotes', [['quote', 'What clients see', PriceIcon, shop.logo ? 'Logo' + (contacts ? ` · ${contacts} contacts` : '') : `${contacts} contacts`]]],
+    ['Pricing', [['prices', 'Profit target', TagIcon, `${c.margin}%`], ['fees', 'Card fees', WalletIcon, c.fees.on ? `${c.fees.rate}% + ${money(c.fees.flat)}` : 'Off'], ['shipping', 'Shipping', TruckIcon, c.ship.threshold ? `Free over ${money0(c.ship.threshold)}` : money(c.ship.charge)], ['bundles', 'Bundles & deals', ReceiptIcon, String(shop.bundles.length)], ['bills', 'Monthly bills', CoinIcon, `${money0(monthly)} a month`]], 'Time isn’t counted as a cost.'],
+    ['Making', [['sizes', 'Sizes & straps', RulerIcon, `${Object.keys(shop.sizes).length} sizes`], ['cutting', 'Cutting & mats', ScissorsIcon, `${inch(c.cut.width)} on ${vm.name.replace(' mat', '')}`], ['cutfiles', 'Cut files', FolderIcon, `${Object.values(shop.sizes).filter(z => z.file).length + shop.straps.filter(x => x.file).length} files`], ['fabric', 'New fabric', FabricIcon, `${fmtN(c.newBolt.yards)} yd · low at ${fmtN(c.newBolt.low)}`], ['products', 'Products', BoxIcon, String(shop.products.length)], ['templates', 'Workflow templates', WorkflowIcon, String(shop.templates.length)]]],
+    ['App', [['reminders', 'Reminders', BellIcon, c.remind.on ? 'Notifications on' : 'In the bell'], ['timers', 'Timers', TimeIcon, `Check after ${c.staleMins / 60}h`], ['shortcuts', 'Keyboard shortcuts', GearIcon, ''], ['data', 'Your data', CalIcon, 'On this computer']]],
+  ];
+  const all = GROUPS.flatMap(g => g[1]);
+  const curRow = all.find(r => r[0] === cur) || all[0];
+  const twoPane = w >= 900;
+  const pick = (k: SettingsTab) => {
+    setTab(k);
+    setShowDetail(true);
+  };
+  const list = (
+    <View style={{ gap: 18 }}>
+      {unset ? (
+        <Pressable accessibilityRole="button" onPress={() => pick('sizes')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: t.warnTint, borderRadius: 16, paddingHorizontal: 16, minHeight: 52 }}>
+          <Text style={{ flex: 1, fontSize: F.f15, color: t.onWarn }}><Text style={{ fontWeight: '700' }}>{unset.name} isn’t set up yet,</Text> so it can’t be planned. Add a price and cut size</Text>
+          <ChevIcon color={t.onWarn} size={14} />
+        </Pressable>
+      ) : null}
+      {GROUPS.map(([g, rows, note]) => (
+        <View key={g} style={{ gap: 8 }}>
+          <Text style={{ fontSize: F.f13, fontWeight: '700', color: t.text2, letterSpacing: 0.6, textTransform: 'uppercase', marginLeft: 4 }}>{g}</Text>
+          <View style={[{ backgroundColor: t.surface, borderRadius: 20, padding: 8 }, shadow(t.dark)]}>
+            {rows.map(([k, label, Ic, v]) => {
+              const on = twoPane && k === cur;
+              return (
+                <Pressable key={k} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => pick(k)}
+                  style={({ pressed }) => ({ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 12, borderRadius: 14, backgroundColor: on ? t.tint : pressed ? t.sunken : 'transparent' })}>
+                  <Ic color={on ? t.onTint : t.text2} size={20} />
+                  <Text style={{ flex: 1, fontSize: F.f15, color: on ? t.onTint : t.text }}>{label}</Text>
+                  {v ? <Text numberOfLines={1} style={{ fontSize: F.f15, color: on ? t.onTint : t.text3, maxWidth: 170 }}>{v}</Text> : null}
+                  {twoPane ? null : <ChevIcon color={t.text3} size={14} />}
+                </Pressable>
+              );
+            })}
+          </View>
+          {note ? <Note>{note}</Note> : null}
+        </View>
+      ))}
+    </View>
+  );
+  const body =
+    cur === 'shop' ? <ShopSettings part="shop" />
+    : cur === 'goals' ? <Goals />
+    : cur === 'hours' ? <Hours />
+    : cur === 'quote' ? <QuoteLook />
+    : cur === 'prices' || cur === 'fees' || cur === 'shipping' || cur === 'bundles' || cur === 'bills' ? <PricingSettings part={cur} />
+    : cur === 'sizes' || cur === 'cutting' || cur === 'cutfiles' || cur === 'fabric' ? <SetupScreen part={cur} />
+    : cur === 'products' ? <ProductsSettings />
+    : cur === 'templates' ? <Templates />
+    : cur === 'timers' ? <Timers openRun={openRun} />
+    : <ShopSettings part={cur as 'reminders' | 'shortcuts' | 'data'} />;
+  const detail = (
+    <View style={[{ backgroundColor: t.surface, borderRadius: 20, paddingHorizontal: 28, paddingTop: 24, paddingBottom: 28, gap: 18 }, shadow(t.dark)]}>
+      <Text style={{ fontSize: F.f28, fontWeight: '700', color: t.text }}>{curRow[1]}</Text>
+      {body}
+    </View>
+  );
+  if (twoPane)
+    return (
+      <View style={{ flex: 1, flexDirection: 'row', gap: 24, paddingLeft: 32 }} onLayout={e => setW(e.nativeEvent.layout.width)}>
+        <ScrollView style={{ width: 360, flexGrow: 0 }} contentContainerStyle={{ paddingTop: 32, paddingBottom: 60, gap: 20 }}>
+          <PageHead sup={shop.shopName || 'Your shop'} title="Shop settings" />
+          {list}
+        </ScrollView>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 104, paddingBottom: 60, paddingRight: 32, maxWidth: 1000 }}>{detail}</ScrollView>
+      </View>
+    );
   return (
-    <ScrollView contentContainerStyle={{ padding: 32, gap: 22, maxWidth: 1040 }}>
-      <T s="title">Settings</T>
-      <Segmented label="Settings" bare value={tab} onChange={setTab} options={[['shop', 'Shop'], ['sizes', 'Sizes & mats'], ['products', 'Products'], ['pricing', 'Pricing'], ['templates', 'Templates'], ['hours', 'Free hours'], ['timers', 'Timers']]} />
-      {tab === 'shop' ? <ShopSettings /> : tab === 'sizes' ? <SetupScreen /> : tab === 'products' ? <ProductsSettings /> : tab === 'pricing' ? <PricingSettings /> : tab === 'templates' ? <Templates /> : tab === 'hours' ? <Hours /> : <Timers openRun={openRun} />}
+    <ScrollView contentContainerStyle={{ alignItems: 'center' }} onLayout={e => setW(e.nativeEvent.layout.width)}>
+      <View style={{ width: '100%', paddingHorizontal: 32, paddingTop: 32, paddingBottom: 60, gap: 20 }}>
+        {showDetail ? (
+          <>
+            <Pressable accessibilityRole="button" onPress={() => setShowDetail(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, alignSelf: 'flex-start' }}>
+              <T color={t.action} style={{ fontSize: 22, marginTop: -3 }}>‹</T><T color={t.action} style={{ fontWeight: '600', fontSize: F.f16 }}>Settings</T>
+            </Pressable>
+            {detail}
+          </>
+        ) : (
+          <>
+            <PageHead sup={shop.shopName || 'Your shop'} title="Shop settings" />
+            {list}
+          </>
+        )}
+      </View>
     </ScrollView>
+  );
+}
+
+/* ---------- monthly goals ---------- */
+function Goals() {
+  const shop = useShop();
+  const t = useTheme();
+  const month = new Date().toISOString().slice(0, 7);
+  const income = shop.sales.filter(e => e.day.startsWith(month)).reduce((a, e) => a + e.sub - (e.refund || 0), 0);
+  const hours = shop.sessions.filter(s => s.day.startsWith(month)).reduce((a, s) => a + s.mins, 0) / 60;
+  const bar = (label: string, have: string, goal: string, frac: number) => (
+    <View style={{ gap: 6 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text style={{ fontSize: F.f14, fontWeight: '700', color: t.text }}>{label}</Text>
+        <Text style={{ fontSize: F.f14, color: t.text3 }}><Text style={{ fontWeight: '700', color: t.text }}>{have}</Text> of {goal}</Text>
+      </View>
+      <View style={{ height: 10, borderRadius: 5, backgroundColor: t.sunken, overflow: 'hidden' }}><View style={{ height: 10, borderRadius: 5, width: `${Math.min(100, frac * 100)}%`, backgroundColor: t.action }} /></View>
+    </View>
+  );
+  return (
+    <View style={{ gap: 16, maxWidth: 560 }}>
+      <View style={{ backgroundColor: t.bg, borderRadius: 16, padding: 18, gap: 14 }}>
+        {bar('Income this month', money0(income), money0(shop.goals.income), income / Math.max(1, shop.goals.income))}
+        {bar('Hours this month', `${Math.round(hours)}h`, `${shop.goals.hours}h`, hours / Math.max(1, shop.goals.hours))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
+        <NumField label="Income goal" value={shop.goals.income} onChange={n => setGoals({ income: n ?? 0 })} prefix="$" width={150} />
+        <NumField label="Hours goal" value={shop.goals.hours} onChange={n => setGoals({ hours: n ?? 0 })} suffix="h" width={130} />
+      </View>
+      <Note style={{ paddingHorizontal: 0 }}>Both reset on the 1st. Income counts this month’s sales before fees, paid or not; hours count timed work.</Note>
+    </View>
+  );
+}
+
+/* ---------- what clients see on a quote ---------- */
+function QuoteLook() {
+  const shop = useShop();
+  const t = useTheme();
+  const lg = shop.logo;
+  const choose = async () => {
+    try {
+      const got = await pickLogo();
+      if (!got) return;
+      change(s => ({ ...s, logo: got }));
+      showSnack('Logo added to your quotes');
+    } catch {
+      showSnack('That picture couldn’t be read');
+    }
+  };
+  return (
+    <View style={{ gap: 18 }}>
+      <View style={{ gap: 8 }}>
+        <T s="h2">Logo</T>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: t.bg, borderRadius: 16, padding: 14 }}>
+          {lg ? <Image source={{ uri: lg.src }} style={{ width: 52, height: 52, borderRadius: 15 }} /> : (
+            <View style={{ width: 52, height: 52, borderRadius: 15, backgroundColor: '#8A4B0C', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 22 }}>{((shop.shopName || 'S').trim()[0] || 'S').toUpperCase()}</Text></View>
+          )}
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={{ fontSize: F.f15, fontWeight: '600', color: t.text }}>{lg ? 'Your logo' : 'Your shop’s initial'}</Text>
+            <Text style={{ fontSize: F.f14, color: t.text3 }}>{lg ? 'Shown at the top of every quote and its PDF' : 'Choose a square logo to use instead'}</Text>
+          </View>
+          <Button small kind="secondary" title={lg ? 'Change' : 'Choose'} onPress={choose} />
+          {lg ? <Button small kind="ghost" title="Remove" onPress={() => { const was = lg; change(s => ({ ...s, logo: null })); showSnack('Logo removed', () => change(s => ({ ...s, logo: was }))); }} /> : null}
+        </View>
+        <Note style={{ paddingHorizontal: 0 }}>Pictures are cropped to the middle square.</Note>
+      </View>
+      <PricingSettings part="quote" />
+    </View>
   );
 }
 

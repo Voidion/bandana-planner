@@ -1,3 +1,4 @@
+import { freshEquip, migrateEquip } from './equip';
 import type { Run, Shop, Size, Template } from './types';
 
 export const SCHEMA_VERSION = 2;
@@ -92,6 +93,7 @@ export function emptyShop(): Shop {
     albums: [],
     notified: {},
     alertSt: { dis: {}, snz: {}, seen: {} },
+    equip: freshEquip(),
     tools: [
       { id: 'blade', name: 'Rotary blade', kind: 'blade', uses: 0, life: 400, since: new Date().toISOString().slice(0, 10), notes: 'Counted in mats cut', log: [] },
       { id: 'mat', name: 'Cutting mat', kind: 'mat', uses: 0, life: 250, since: new Date().toISOString().slice(0, 10), notes: 'Counted in mats loaded', log: [] },
@@ -175,6 +177,7 @@ export function migrate(raw: unknown): Shop {
     photos: arr(s.photos),
     notified: s.notified && typeof s.notified === 'object' ? s.notified : {},
     pairs: Array.isArray(s.pairs) ? s.pairs : [],
+    equip: migrateEquip(s),
     alertSt: s.alertSt && typeof s.alertSt === 'object' ? { dis: s.alertSt.dis || {}, snz: s.alertSt.snz || {}, seen: s.alertSt.seen || {} } : { dis: {}, snz: {}, seen: {} },
     albums: arr(s.albums),
     tools: Array.isArray(s.tools) ? s.tools : base.tools,

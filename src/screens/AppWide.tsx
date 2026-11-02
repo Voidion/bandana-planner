@@ -122,16 +122,21 @@ export function NewMenu({ onClose, go }: { onClose: () => void; go: Go }) {
 }
 
 /* ---------- Settings › Shop ---------- */
-export function ShopSettings() {
+export type ShopPart = 'shop' | 'reminders' | 'shortcuts' | 'data';
+export function ShopSettings({ part }: { part?: ShopPart } = {}) {
+  const show = (k: ShopPart) => !part || part === k;
   const shop = useShop();
   const t = useTheme();
   const [folder, setFolder] = useState<string | null>(null);
   return (
     <View style={{ gap: 22, maxWidth: 720 }}>
+      {show('shop') ? (
       <Card style={{ gap: 14 }}>
         <Field label="Shop name" value={shop.shopName} onChange={v => update(s => ({ ...s, shopName: v }))} />
         <Segmented label="Appearance" value={shop.cfg.theme} onChange={v => update(s => ({ ...s, cfg: { ...s.cfg, theme: v } }))} options={[['system', 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']]} />
       </Card>
+      ) : null}
+      {show('reminders') ? (
       <Section title="Reminders">
         <Card style={{ gap: 12 }}>
           <T style={{ fontWeight: '600' }}>Remind me about</T>
@@ -151,7 +156,9 @@ export function ShopSettings() {
           <T s="small">Everything collects in the bell. With notifications on, each one also pops up in Windows once while Bandana Planner is open. The timer one comes whenever a timer passes your check-in time.</T>
         </Card>
       </Section>
+      ) : null}
 
+      {show('shortcuts') ? (
       <Section title="Keyboard shortcuts">
         <Card pad={false} style={{ overflow: 'hidden' }}>
           {SHORTCUTS.map(([k, v], i) => (
@@ -162,6 +169,8 @@ export function ShopSettings() {
           ))}
         </Card>
       </Section>
+      ) : null}
+      {show('data') ? (
       <Section title="Your data">
         <Card style={{ gap: 10 }}>
           <T>Everything is saved on this computer as you go. No account, nothing online.</T>
@@ -170,6 +179,7 @@ export function ShopSettings() {
           {folder ? <T s="small">{folder}</T> : null}
         </Card>
       </Section>
+      ) : null}
     </View>
   );
 }
