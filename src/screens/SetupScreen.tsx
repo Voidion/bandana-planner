@@ -5,7 +5,8 @@ import { MATS } from '../lib/plan';
 import { onDevice } from '../state/storage';
 import { change as update, useShop } from '../state/store';
 import type { CutSettings, Size, Strap } from '../state/types';
-import { Card, Field, NumField, Row, Section, Segmented, Select, T } from '../ui/kit';
+import { Card, Field, NumField, Row, Section, Segmented, Select, showSnack, T } from '../ui/kit';
+import { CutFileRow } from '../ui/CutFileRow';
 import { useTheme } from '../ui/theme';
 
 export function SetupScreen() {
@@ -34,8 +35,8 @@ export function SetupScreen() {
           {Object.entries(shop.sizes).map(([k, z]) => (
             <Row key={k}>
               <View style={{ width: 120 }}><Field bare label={`${k} name`} value={z.name} onChange={v => setSize(k, { name: v })} width={108} /></View>
-              <View style={{ width: 100 }}><NumField bare label={`${z.name} wide edge`} value={z.cw} onChange={n => setSize(k, { cw: n })} suffix="in" width={88} placeholder="–" /></View>
-              <View style={{ width: 100 }}><NumField bare label={`${z.name} tip length`} value={z.cl} onChange={n => setSize(k, { cl: n })} suffix="in" width={88} placeholder="–" /></View>
+              <View style={{ width: 100 }}>{z.file ? <T s="sub" style={{ paddingLeft: 4 }}>{inch(z.cw)} file</T> : <NumField bare label={`${z.name} wide edge`} value={z.cw} onChange={n => setSize(k, { cw: n })} suffix="in" width={88} placeholder="–" />}</View>
+              <View style={{ width: 100 }}>{z.file ? <T s="sub" style={{ paddingLeft: 4 }}>{inch(z.cl)} file</T> : <NumField bare label={`${z.name} tip length`} value={z.cl} onChange={n => setSize(k, { cl: n })} suffix="in" width={88} placeholder="–" />}</View>
               <View style={{ width: 92 }}><NumField bare label={`${z.name} price`} value={z.price} onChange={n => setSize(k, { price: n })} prefix="$" width={80} placeholder="–" /></View>
               <View style={{ width: 96 }}><NumField bare label={`${z.name} minutes each`} value={z.mins} onChange={n => setSize(k, { mins: n })} suffix="min" width={84} placeholder="–" /></View>
               <View style={{ flex: 1 }}>
@@ -47,13 +48,52 @@ export function SetupScreen() {
         <T s="small">The wide edge is the neck side of the triangle; the tip length runs from that edge to the point. Include seam allowance. Time each is start to finish for one bandana; bigger sizes then get more time in a run’s steps.</T>
       </Section>
 
+      <Section title="Cut files" right={<T s="small">SVG from Design Space or your design app</T>}>
+        <Card pad={false} style={{ overflow: 'hidden' }}>
+          {Object.entries(shop.sizes).map(([k, z], i) => (
+            <CutFileRow
+              key={k}
+              first={i === 0}
+              label={z.name}
+              file={z.file}
+              emptyNote={z.cw && z.cl ? `Planned as a ${inch(z.cw)} × ${inch(z.cl)} triangle` : 'No file and no cut size yet'}
+              onFile={f => setSize(k, { file: f, cw: f.w, cl: f.h })}
+              onRemove={() => {
+                const was = z.file;
+                setSize(k, { file: null });
+                showSnack('Cut file removed. Plans use the triangle again', () => setSize(k, { file: was }));
+              }}
+            />
+          ))}
+          {shop.straps.map(st => (
+            <CutFileRow
+              key={st.id}
+              label={st.name + ' strap'}
+              file={st.file}
+              emptyNote={`Planned as a ${inch(st.w)} × ${inch(st.l)} strip`}
+              onFile={f => setStrap(st.id, { file: f, w: f.w, l: f.h })}
+              onRemove={() => {
+                const was = st.file;
+                setStrap(st.id, { file: null });
+                showSnack('Cut file removed. Plans use the strip again', () => setStrap(st.id, { file: was }));
+              }}
+            />
+          ))}
+        </Card>
+        <T s="small">With a file, pieces are nested by their real outline (they can turn and interlock as the fabric’s print allows), and the cut files you save draw that outline on each mat. The file’s size sets the cut size; export it at the size you cut.</T>
+      </Section>
+
       <Section title="Straps">
         <Card pad={false} style={{ overflow: 'hidden' }}>
           {shop.straps.map((s, i) => (
             <Row key={s.id} first={i === 0}>
               <View style={{ flex: 1 }}><Field label="Name" value={s.name} onChange={v => setStrap(s.id, { name: v })} /></View>
-              <NumField label="Cut width" value={s.w} onChange={n => setStrap(s.id, { w: n ?? 0 })} suffix="in" width={110} />
-              <NumField label="Cut length" value={s.l} onChange={n => setStrap(s.id, { l: n ?? 0 })} suffix="in" width={110} />
+              {s.file ? <T s="sub" style={{ width: 232 }}>{inch(s.w)} × {inch(s.l)} from the cut file</T> : (
+                <>
+                  <NumField label="Cut width" value={s.w} onChange={n => setStrap(s.id, { w: n ?? 0 })} suffix="in" width={110} />
+                  <NumField label="Cut length" value={s.l} onChange={n => setStrap(s.id, { l: n ?? 0 })} suffix="in" width={110} />
+                </>
+              )}
               <NumField label="Extra time" value={s.mins ?? 0} onChange={n => setStrap(s.id, { mins: n ?? 0 })} suffix="min" width={110} />
               <NumField label="Notions" value={s.mat ?? 0} onChange={n => setStrap(s.id, { mat: n ?? 0 })} prefix="$" width={100} />
             </Row>

@@ -1,3 +1,5 @@
+import type { CutFile } from '../lib/svg';
+
 /* The shop as stored on this computer. Field names match the prototype so the shared engine can read it unchanged.
    Dates are stored as real calendar days (YYYY-MM-DD); src/lib/engineState.ts turns them into the prototype's "days from today". */
 
@@ -19,6 +21,10 @@ export interface Size {
   mins: number | null;
   /** Thread, tags and other bits for one, dollars */
   notions?: number | null;
+  /** Your own cut file for this size: pieces are nested by its real outline */
+  file?: CutFile | null;
+  /** A strap cut just for this size (overrides the strap style's size or file) */
+  strapCut?: { w?: number; l?: number; file?: CutFile | null };
 }
 
 export interface Strap {
@@ -32,6 +38,8 @@ export interface Strap {
   mins?: number;
   /** Notions per strap (elastic, snaps), dollars */
   mat?: number;
+  /** Your own cut file for this strap */
+  file?: CutFile | null;
 }
 
 export type PrintTop = 'up' | 'down' | 'left' | 'right';

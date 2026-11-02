@@ -4,6 +4,7 @@
 //   saveCutFile(folder, name, text) -> Documents\Bandana Planner\<folder>\<name>, returns the full path
 //   revealFile(path)                -> opens File Explorer with the file selected
 //   dataFolder()                    -> the folder shop.json lives in
+//   openTextFile(title, kind, pattern) -> shows Windows' Open dialog; returns {"name","path","text"} as JSON, or "" if cancelled
 #pragma once
 
 #include "pch.h"
@@ -11,6 +12,7 @@
 
 #include <ShlObj.h>
 #include <shellapi.h>
+#include <commdlg.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -18,6 +20,7 @@
 
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "comdlg32.lib")
 
 namespace BandanaPlanner {
 
@@ -71,6 +74,29 @@ inline bool WriteAll(const fs::path &file, const std::string &text) {
   out.write(text.data(), static_cast<std::streamsize>(text.size()));
   out.flush();
   return static_cast<bool>(out);
+}
+
+inline std::string JsonEscape(const std::string &s) {
+  std::string o;
+  o.reserve(s.size() + 16);
+  for (unsigned char c : s) {
+    switch (c) {
+      case '"': o += "\\\""; break;
+      case '\\': o += "\\\\"; break;
+      case '\n': o += "\\n"; break;
+      case '\r': o += "\\r"; break;
+      case '\t': o += "\\t"; break;
+      default:
+        if (c < 0x20) {
+          char b[8];
+          sprintf_s(b, "\\u%04x", c);
+          o += b;
+        } else {
+          o += static_cast<char>(c);
+        }
+    }
+  }
+  return o;
 }
 
 REACT_MODULE(BandanaFiles)
@@ -145,6 +171,62 @@ struct BandanaFiles {
     std::wstring args = L"/select,\"" + Widen(path) + L"\"";
     auto r = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", L"explorer.exe", args.c_str(), nullptr, SW_SHOWNORMAL));
     promise.Resolve(r > 32);
+  }
+
+  REACT_METHOD(OpenTextFile, L"openTextFile")
+  void OpenTextFile(std::string title, std::string kind, std::string pattern,
+                    winrt::Microsoft::ReactNative::ReactPromise<std::string> promise) noexcept {
+    try {
+      // Filter is "<kind> (<pattern>)\0<pattern>\0All files\0*.*\0\0"
+      std::wstring k = Widen(kind), pat = Widen(pattern);
+      std::wstring filter = k + L" (" + pat + L")";
+      filter.push_back(L'\0');
+      filter += pat;
+      filter.push_back(L'\0');
+      filter += L"All files";
+      filter.push_back(L'\0');
+      filter += L"*.*";
+      filter.push_back(L'\0');
+      filter.push_back(L'\0');
+      std::wstring t = Widen(title);
+      wchar_t file[4096] = L"";
+      OPENFILENAMEW ofn{};
+      ofn.lStructSize = sizeof(ofn);
+      ofn.hwndOwner = GetForegroundWindow();
+      ofn.lpstrFilter = filter.c_str();
+      ofn.lpstrFile = file;
+      ofn.nMaxFile = static_cast<DWORD>(std::size(file));
+      ofn.lpstrTitle = t.empty() ? nullptr : t.c_str();
+      ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
+      if (!GetOpenFileNameW(&ofn)) {
+        promise.Resolve(std::string());
+        return;
+      }
+      fs::path path(file);
+      std::error_code ec;
+      auto size = fs::file_size(path, ec);
+      if (ec || size > 2 * 1024 * 1024) {
+        promise.Reject(L"That file is too big");
+        return;
+      }
+      std::ifstream in(path, std::ios::binary);
+      if (!in) {
+        promise.Reject(L"Couldn't open that file");
+        return;
+      }
+      std::stringstream buf;
+      buf << in.rdbuf();
+      std::string text = buf.str();
+      if (text.size() >= 3 && static_cast<unsigned char>(text[0]) == 0xEF && static_cast<unsigned char>(text[1]) == 0xBB &&
+          static_cast<unsigned char>(text[2]) == 0xBF) {
+        text.erase(0, 3);
+      }
+      std::string out = "{\"name\":\"" + JsonEscape(Narrow(path.filename().wstring())) + "\",\"path\":\"" +
+          JsonEscape(Narrow(path.wstring())) + "\",\"text\":\"" + JsonEscape(text) + "\"}";
+      promise.Resolve(out);
+    } catch (...) {
+      promise.Reject(L"Couldn't open that file");
+    }
   }
 
   REACT_METHOD(GetDataFolder, L"dataFolder")

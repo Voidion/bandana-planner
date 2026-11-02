@@ -10,6 +10,7 @@ type FilesModule = {
   saveCutFile(folder: string, fileName: string, contents: string): Promise<string>;
   revealFile(path: string): Promise<boolean>;
   dataFolder(): Promise<string>;
+  openTextFile(title: string, kind: string, pattern: string): Promise<string>;
 };
 
 function nativeFiles(): FilesModule | null {
@@ -67,4 +68,26 @@ export async function saveCutFile(folder: string, fileName: string, svg: string)
 
 export async function revealFile(path: string): Promise<void> {
   if (files) await files.revealFile(path);
+}
+
+/** Windows' Open dialog for a text file (SVG cut files, spreadsheets). Null if cancelled. */
+export async function openTextFile(title: string, kind: string, pattern: string): Promise<{ name: string; text: string } | null> {
+  if (files && files.openTextFile) {
+    const json = await files.openTextFile(title, kind, pattern);
+    if (!json) return null;
+    const o = JSON.parse(json);
+    return { name: o.name, text: o.text };
+  }
+  /* browser preview: a file input */
+  if (!web.document) return null;
+  return new Promise(resolve => {
+    const input = web.document.createElement('input');
+    input.type = 'file';
+    input.accept = pattern.split(';').map((p: string) => p.replace('*', '')).join(',');
+    input.onchange = async () => {
+      const f = input.files && input.files[0];
+      resolve(f ? { name: f.name, text: await f.text() } : null);
+    };
+    input.click();
+  });
 }

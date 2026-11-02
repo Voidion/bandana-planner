@@ -17,7 +17,8 @@ import {
   update,
 } from '../src/state/store';
 import { emptyShop, migrate } from '../src/state/defaults';
-import { computePlan, runNumbers } from '../src/lib/plan';
+import { computePlan, cutFiles, runNumbers } from '../src/lib/plan';
+import { parseCutFile } from '../src/lib/svg';
 
 const run = (id: string) => getShop().runs.find(r => r.id === id)!;
 
@@ -97,6 +98,23 @@ describe('shop on this computer', () => {
     expect(stockBySize(getShop()).M).toBe(1);
     undoDefect(d);
     expect(stockBySize(getShop()).M).toBe(3);
+  });
+
+  it('nests by a cut file’s real outline and saves that outline in the mat files', () => {
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='11in' height='8in' viewBox='0 0 1100 800'><path d='M0 0 L1100 0 Q560 820 550 800 Q540 820 0 0 Z'/></svg>";
+    const file = parseCutFile(svg, 'medium.svg') as any;
+    update(s => ({ ...s, sizes: { ...s.sizes, M: { ...s.sizes.M, file, cw: file.w, cl: file.h } } }));
+    const f = addFabric({ name: 'Sage', yards: 6 });
+    const id = planRun({ body: f, ties: f });
+    editRun(id, { qty: { ...run(id).qty, M: 10 } });
+    const res = computePlan(getShop(), run(id));
+    expect(res.count).toBe(10);
+    const bodies = res.cp.mats.filter((m: any) => m.fab !== 'strap').flatMap((m: any) => m.pieces);
+    expect(bodies.length).toBe(10);
+    expect(bodies.every((p: any) => Array.isArray(p.polys) && p.polys[0].length > 10)).toBe(true);
+    const svgs = cutFiles(getShop(), run(id), res.cp);
+    expect(svgs[0].svg).toContain('<path');
+    expect((svgs[0].svg.match(/L/g) || []).length).toBeGreaterThan(100);
   });
 
   it('skips sizes without measurements instead of failing', () => {

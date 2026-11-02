@@ -1,0 +1,6 @@
+[
+ ["bandana-in.svg","<svg xmlns='http://www.w3.org/2000/svg' width='11in' height='8in' viewBox='0 0 1100 800'><path d='M0 0 L1100 0 Q560 820 550 800 Q540 820 0 0 Z' fill='#000'/></svg>"],
+ ["mm-rect.svg","<svg xmlns='http://www.w3.org/2000/svg' width='100mm' height='50mm' viewBox='0 0 100 50'><g transform='translate(10 5) rotate(10)'><rect x='0' y='0' width='60' height='30' rx='3'/></g></svg>"],
+ ["px-noviewbox.svg","<svg xmlns='http://www.w3.org/2000/svg' width='720' height='360'><circle cx='180' cy='180' r='150'/><path d='M400 50h200v100a50 50 0 0 1 -50 50H400z'/></svg>"],
+ ["scalloped.svg","<svg xmlns='http://www.w3.org/2000/svg' width='14in' height='9in' viewBox='0 0 14 9'><defs><path id='x' d='M0 0h100v100z'/></defs><path d='M0,0 C2,1 4,-1 7,0 S12,1 14,0 L7,9 Z'/><polygon points='6,2 8,2 7,4'/></svg>"]
+]
