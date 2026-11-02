@@ -95,7 +95,7 @@ export function markOrdered(kind: 'fabric' | 'supply', id: string, amount: numbe
     const name = kind === 'fabric' ? s.fabrics.find(x => x.id === id)?.name : s.supplies.find(x => x.id === id)?.name;
     const next: Shop =
       kind === 'fabric'
-        ? { ...s, fabrics: s.fabrics.map(x => (x.id === id ? { ...x, onOrder: round2((x.onOrder || 0) + amount) } : x)) }
+        ? { ...s, fabrics: s.fabrics.map(x => (x.id === id ? { ...x, onOrder: round2((x.onOrder || 0) + amount), orderedOn: todayDay() } : x)) }
         : { ...s, supplies: s.supplies.map(x => (x.id === id ? { ...x, onOrder: round2((x.onOrder || 0) + amount) } : x)) };
     return withLog(next, 'ordered ' + (name || 'an item'), `${round2(amount)} ${kind === 'fabric' ? 'yd' : ''}`.trim());
   });
@@ -103,7 +103,7 @@ export function markOrdered(kind: 'fabric' | 'supply', id: string, amount: numbe
 export function cancelOrder(kind: 'fabric' | 'supply', id: string) {
   update(s =>
     kind === 'fabric'
-      ? { ...s, fabrics: s.fabrics.map(x => (x.id === id ? { ...x, onOrder: 0 } : x)) }
+      ? { ...s, fabrics: s.fabrics.map(x => (x.id === id ? { ...x, onOrder: 0, orderedOn: null } : x)) }
       : { ...s, supplies: s.supplies.map(x => (x.id === id ? { ...x, onOrder: 0 } : x)) },
   );
 }
@@ -115,7 +115,7 @@ export function arrived(kind: 'fabric' | 'supply', id: string, amount?: number, 
       if (!f) return s;
       const n = amount ?? f.onOrder;
       return withLog(
-        { ...s, fabrics: s.fabrics.map(x => (x.id === id ? { ...x, yards: round2(x.yards + n), onOrder: 0, cost: cost ?? x.cost } : x)) },
+        { ...s, fabrics: s.fabrics.map(x => (x.id === id ? { ...x, yards: round2(x.yards + n), onOrder: 0, orderedOn: null, cost: cost ?? x.cost } : x)) },
         'restocked ' + f.name,
         `+${round2(n)} yd`,
       );

@@ -76,7 +76,7 @@ export function emptyShop(): Shop {
       payLabor: false,
       ship: { threshold: 50, charge: 4.5, cost: 5.2 },
       theme: 'system',
-      remind: { on: true, hour: 9, orders: true, payments: true, restock: true, timer: true, tools: true, quotes: true, due: true, market: true, days: 2 },
+      remind: { on: true, hour: 9, orders: true, payments: true, restock: true, timer: true, tools: true, quotes: true, due: true, market: true, events: true, days: 2 },
       quote: { email: '', phone: '', insta: '', site: '', pay: '', notes: ['Every bandana is cut and sewn by hand, so pattern placement varies a little from piece to piece.'], holdDays: 30 },
     },
     suppliers: [],

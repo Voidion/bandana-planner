@@ -1,5 +1,5 @@
 /* Reminders as Windows notifications: the same list as the bell, each sent once.
-   Everything except a timer left running waits for your chosen hour. Dismissed or snoozed ones aren't sent. */
+   Everything except a timer left running and your own event reminders waits for your chosen hour. Dismissed or snoozed ones aren't sent. */
 import { addDays, todayDay } from '../lib/plan';
 import { alertsNow } from './alerts';
 import { notify } from './storage';
@@ -15,7 +15,7 @@ export interface Reminder {
 }
 
 export function reminders(s: Shop): Reminder[] {
-  return alertsNow(s).map(a => ({ key: a.id, title: a.t, body: a.s, daily: a.kind !== 'timer' }));
+  return alertsNow(s).map(a => ({ key: a.id, title: a.t, body: a.s, daily: a.kind !== 'timer' && a.kind !== 'events' }));
 }
 
 /** Sends any reminders that are due and haven't been sent. Call it every minute or so. */

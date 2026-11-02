@@ -34,6 +34,20 @@ export function parseQuick(raw: string, today = todayDay()): QuickEvent | null {
   let loc = '';
   const dow = new Date(today + 'T12:00:00').getDay();
 
+  let rep: CalEvent['rep'] = '';
+  if ((m = x.match(/\bevery other week\b|\bevery 2 weeks\b|\bbiweekly\b/))) {
+    rep = '2w';
+    cut(m[0]);
+  } else if ((m = x.match(/\bevery week\b|\bweekly\b/))) {
+    rep = 'w';
+    cut(m[0]);
+  } else if ((m = x.match(/\bevery month\b|\bmonthly\b/))) {
+    rep = 'm';
+    cut(m[0]);
+  } else if ((m = x.match(/\bevery (sun|mon|tue|wed|thu|fri|sat)/))) {
+    rep = 'w';
+    x = x.replace(/\bevery (?=(sun|mon|tue|wed|thu|fri|sat))/, ' ');
+  }
   if ((m = x.match(/\bfor (\d{1,2}) days\b/))) {
     days = Math.max(1, +m[1]);
     cut(m[0]);
@@ -111,6 +125,7 @@ export function parseQuick(raw: string, today = todayDay()): QuickEvent | null {
     notes: '',
     ...(time && kind !== 'off' ? { time, dur: dur || (kind === 'market' ? 360 : 60) } : {}),
     ...(locPretty ? { loc: locPretty } : {}),
+    ...(rep ? { rep } : {}),
   };
 }
 

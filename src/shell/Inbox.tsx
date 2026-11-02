@@ -4,13 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { alertsNow, alertsSnoozed, dismissAlert, markSeen, REM_KINDS, snoozeAlert, snoozeOptions, snoozeUntil, snoozeWhen, undismissAlert, unsnoozeAlert, type Alert, type AlertIcon } from '../state/alerts';
 import { useShop } from '../state/store';
-import { CartIcon, CheckIcon, ChevIcon, ClockIcon, CloseIcon, CoinIcon, PriceIcon, RunsIcon, ShelfIcon, SlidersIcon, WalletIcon, WrenchIcon, BellIcon } from '../ui/icons';
+import { CalIcon, CartIcon, CheckIcon, ChevIcon, ClockIcon, CloseIcon, CoinIcon, PriceIcon, RunsIcon, ShelfIcon, SlidersIcon, WalletIcon, WrenchIcon, BellIcon } from '../ui/icons';
 import { openMenuAt, showSnack, T } from '../ui/kit';
 import { F, useTheme } from '../ui/theme';
 import { IconBtn } from './Sidebar';
 
 export const ALERT_ICONS: Record<AlertIcon, (p: { color: string; size?: number }) => React.ReactElement> = {
-  clock: ClockIcon, runs: RunsIcon, cart: CartIcon, fabric: ShelfIcon, price: PriceIcon, coin: CoinIcon, wrench: WrenchIcon, wallet: WalletIcon,
+  clock: ClockIcon, runs: RunsIcon, cart: CartIcon, fabric: ShelfIcon, price: PriceIcon, coin: CoinIcon, wrench: WrenchIcon, wallet: WalletIcon, cal: CalIcon,
 };
 
 export function Inbox({ onClose, go, openSettings }: { onClose: () => void; go: (route: string, id?: string) => void; openSettings: () => void }) {

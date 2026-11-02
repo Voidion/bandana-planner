@@ -71,6 +71,8 @@ export interface Fabric {
   sup?: string | null;
   /** Days from ordering to arriving (overrides the supplier's) */
   lead?: number | null;
+  /** When it was last marked ordered (for when it should arrive) */
+  orderedOn?: string | null;
   /** For an offcut: what it was left over from */
   from?: string;
   /** This fabric's own product page */
@@ -262,6 +264,10 @@ export interface CalEvent {
   time?: string;
   dur?: number;
   loc?: string;
+  /** Repeats every week, every 2 weeks or every month */
+  rep?: '' | 'w' | '2w' | 'm';
+  /** Remind this many minutes before (0 or none = no reminder) */
+  remind?: number;
 }
 
 export interface Photo {
@@ -550,7 +556,7 @@ export interface Shop {
     /** Light, dark, or follow Windows */
     theme: 'system' | 'light' | 'dark';
     /** Windows notifications for reminders */
-    remind: { on: boolean; hour: number; orders: boolean; payments: boolean; restock: boolean; timer: boolean; tools: boolean; quotes: boolean; due: boolean; market: boolean; days: number };
+    remind: { on: boolean; hour: number; orders: boolean; payments: boolean; restock: boolean; timer: boolean; tools: boolean; quotes: boolean; due: boolean; market: boolean; events?: boolean; days: number };
     /** What every quote says: how to reach you, how to pay, and your notes */
     quote: { email: string; phone: string; insta: string; site: string; pay: string; notes: string[]; holdDays: number };
   };

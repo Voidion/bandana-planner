@@ -1,26 +1,31 @@
 /* Schedule, laid out like the prototype: Day / Week / Month / List, a quick-add line, filters for what shows, and
    beside the calendar the chosen day and how the next 7 days fill up. Everything with a date is on it: run due
-   dates, market days, orders due, quotes ending, and your own events. */
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+   dates, market days, orders due, fabric arriving, quotes ending, and your own events (repeating, with reminders).
+   Drag a chip to another day in Month, or a timed event to another time in Day. */
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { PanResponder, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { dayLabel, fmtN, mins, money, plural, relDue } from '../lib/format';
 import { addDays, quoteTotals, rel, schedule, todayDay } from '../lib/plan';
 import { addMin, clock12, parseQuick } from '../lib/quickAdd';
+import { calOccurrences } from '../state/alerts';
 import { addEvent, deleteEvent, editEvent, restoreEvent } from '../state/planning';
 import { change, useShop } from '../state/store';
 import type { CalEvent, Shop } from '../state/types';
 import { ChevIcon, PlusIcon, WarnIcon } from '../ui/icons';
-import { Button, Field, NumField, Segmented, Sheet, showSnack, T } from '../ui/kit';
+import { Button, Field, NumField, Segmented, Select, Sheet, showSnack, T } from '../ui/kit';
 import { CalendarSheet, LinkText, Note, PageHead, Sect, WList } from '../ui/proto';
 import { F, shadow, useTheme } from '../ui/theme';
 import { WeekBars } from './TodayScreen';
 
 type Go = (route: string, id?: string) => void;
 type View_ = 'day' | 'week' | 'month' | 'list';
-type Cat = 'run' | 'order' | 'market' | 'quote' | 'mine';
+type Cat = 'run' | 'order' | 'market' | 'fabric' | 'quote' | 'mine';
+const FABRIC = '#6b7fb3';
+const REP_LAB: Record<string, string> = { w: 'Every week', '2w': 'Every 2 weeks', m: 'Every month' };
 const MARKET = '#4E6A4A';
 const KIND: Record<CalEvent['kind'], [string, string]> = { market: ['Market day', MARKET], pickup: ['Pickup or drop-off', '#b5643c'], sew: ['Sewing block', ''], off: ['Day off', ''], other: ['Other', ''] };
-interface Item { key: string; d: number; t: string; s: string; c: string; cat: Cat; go?: [string, string?]; ev?: string; time?: string; dur?: number }
+/** mv: what dragging it changes (a run's or order's due date, a quote's end, an event's day) */
+interface Item { key: string; d: number; t: string; s: string; c: string; cat: Cat; go?: [string, string?]; ev?: string; time?: string; dur?: number; mv?: ['run' | 'ord' | 'q' | 'ev', string] }
 
 const short = (n: string) => (n || 'Untitled run').split(' — ')[0];
 function calItems(shop: Shop, th: ReturnType<typeof useTheme>, sc: ReturnType<typeof schedule>): Item[] {
@@ -30,34 +35,75 @@ function calItems(shop: Shop, th: ReturnType<typeof useTheme>, sc: ReturnType<ty
     const d = rel(r.due)!;
     const left = r.steps.filter(s => !s.done).reduce((a, s) => a + s.est, 0);
     const late = d < 0 || sc.late.includes(r.id);
-    items.push({ key: 'run-' + r.id, d, t: `${short(r.name)} due`, s: `${d < 0 ? relDue(d) + ' · ' : ''}~${mins(left)} left`, c: late ? th.danger : th.barA, cat: 'run', go: ['runs', r.id] });
+    items.push({ key: 'run-' + r.id, d, t: `${short(r.name)} due`, s: `${d < 0 ? relDue(d) + ' · ' : ''}~${mins(left)} left`, c: late ? th.danger : th.barA, cat: 'run', go: ['runs', r.id], mv: ['run', r.id] });
   });
   shop.orders.filter(o => o.status !== 'delivered' && o.due && !o.run && !o.fromStock.length).forEach(o => {
     const who = shop.customers.find(c => c.id === o.cust)?.name || o.title || 'Order';
-    items.push({ key: 'ord-' + o.id, d: rel(o.due)!, t: `${who} order due`, s: 'Not planned yet', c: th.action, cat: 'order', go: ['orders', o.id] });
+    items.push({ key: 'ord-' + o.id, d: rel(o.due)!, t: `${who} order due`, s: 'Not planned yet', c: th.action, cat: 'order', go: ['orders', o.id], mv: ['ord', o.id] });
   });
   shop.quotes.filter(q => q.status === 'sent' && q.until).forEach(q => {
     const who = shop.customers.find(c => c.id === q.cust)?.name || q.title || 'Quote';
     let tot = '';
     try { tot = money(quoteTotals(shop, q).total); } catch { tot = q.no || ''; }
-    items.push({ key: 'q-' + q.id, d: rel(q.until)!, t: `${who} quote ends`, s: tot, c: th.text3, cat: 'quote', go: ['quotes', q.id] });
+    items.push({ key: 'q-' + q.id, d: rel(q.until)!, t: `${who} quote ends`, s: tot, c: th.text3, cat: 'quote', go: ['quotes', q.id], mv: ['q', q.id] });
   });
   const mk = shop.market;
   if (mk.day && !shop.cal.some(e => e.kind === 'market' && e.day === mk.day)) items.push({ key: 'mk', d: rel(mk.day)!, t: mk.name || 'Market day', s: `Market day${mk.hours ? ` · ${mk.hours}h at the stall` : ''}`, c: MARKET, cat: 'market', go: ['market'] });
-  shop.cal.forEach(e => {
+  shop.fabrics.filter(f => f.onOrder > 0 && f.orderedOn).forEach(f => {
+    const lead = f.lead ?? shop.suppliers.find(x => x.id === f.sup)?.lead ?? 7;
+    const day = addDays(f.orderedOn!, lead);
+    items.push({ key: 'fab-' + f.id, d: rel(day)!, t: `${f.name} arrives`, s: `About · ${fmtN(f.onOrder)} yd on order`, c: FABRIC, cat: 'fabric', go: ['fabric', f.id] });
+  });
+  calOccurrences(shop, -120, 400).forEach(({ e, day }) => {
     const n = Math.max(1, e.days || 1);
-    const d0 = rel(e.day)!;
+    const d0 = rel(day)!;
     for (let j = 0; j < n; j++) {
       const off = e.kind === 'market' || e.kind === 'off';
       items.push({
-        key: `cal-${e.id}-${j}`, d: d0 + j, ev: e.id, cat: e.kind === 'market' ? 'market' : 'mine', c: kc(e.kind),
+        key: `cal-${e.id}-${day}-${j}`, d: d0 + j, ev: e.id, cat: e.kind === 'market' ? 'market' : 'mine', c: kc(e.kind), mv: ['ev', e.id],
         t: (e.title || 'Untitled') + (n > 1 ? ` (day ${j + 1} of ${n})` : ''),
-        s: [n > 1 ? `${dayLabel(e.day, { month: 'short', day: 'numeric' })}–${dayLabel(addDays(e.day, n - 1), { month: 'short', day: 'numeric' })}` : '', KIND[e.kind][0], e.loc || '', off ? 'day off for runs' : '', e.notes || ''].filter(Boolean).join(' · '),
+        s: [n > 1 ? `${dayLabel(day, { month: 'short', day: 'numeric' })}–${dayLabel(addDays(day, n - 1), { month: 'short', day: 'numeric' })}` : '', KIND[e.kind][0], e.loc || '', e.rep ? REP_LAB[e.rep] : '', off ? 'day off for runs' : '', e.notes || ''].filter(Boolean).join(' · '),
         ...(e.time && !j ? { time: e.time, dur: e.dur || 60 } : {}),
       });
     }
   });
   return items.filter(x => x.d != null && isFinite(x.d)).sort((a, b) => a.d - b.d || (a.time || '').localeCompare(b.time || ''));
+}
+/** Moves something on the calendar by whole days (and an event to a new start time) */
+function moveItem(mv: NonNullable<Item['mv']>, delta: number, time?: string) {
+  const [k, id] = mv;
+  if (!delta && !time) return;
+  change(s => {
+    if (k === 'run') return { ...s, runs: s.runs.map(r => (r.id === id && r.due ? { ...r, due: addDays(r.due, delta) } : r)) };
+    if (k === 'ord') return { ...s, orders: s.orders.map(o => (o.id === id && o.due ? { ...o, due: addDays(o.due, delta) } : o)) };
+    if (k === 'q') return { ...s, quotes: s.quotes.map(q => (q.id === id ? { ...q, until: addDays(q.until, delta) } : q)) };
+    return { ...s, cal: s.cal.map(e => (e.id === id ? { ...e, day: addDays(e.day, delta), ...(time ? { time } : {}) } : e)) };
+  });
+}
+/** A chip that can be dragged; a tap still opens it */
+function Draggable({ item, onDrop, onTap, children, style }: { item: Item; onDrop: (dx: number, dy: number) => void; onTap: () => void; children: React.ReactNode; style?: any }) {
+  const [off, setOff] = useState<{ x: number; y: number } | null>(null);
+  const pr = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) + Math.abs(g.dy) > 5,
+        onPanResponderMove: (_, g) => setOff({ x: g.dx, y: g.dy }),
+        onPanResponderRelease: (_, g) => {
+          setOff(null);
+          if (Math.abs(g.dx) + Math.abs(g.dy) <= 5) onTap();
+          else onDrop(g.dx, g.dy);
+        },
+        onPanResponderTerminate: () => setOff(null),
+      }),
+    [onDrop, onTap],
+  );
+  return (
+    <View {...(item.mv ? pr.panHandlers : {})} accessibilityRole="button" accessibilityLabel={item.t} accessibilityHint={item.mv ? 'Drag to move it' : undefined}
+      style={[style, off ? { transform: [{ translateX: off.x }, { translateY: off.y }], zIndex: 50, opacity: 0.9 } : null]}>
+      {item.mv ? children : <Pressable onPress={onTap}>{children}</Pressable>}
+    </View>
+  );
 }
 const dateOf = (d: number) => new Date(addDays(todayDay(), d) + 'T12:00:00');
 const fmtD = (d: number, o: Intl.DateTimeFormatOptions) => dateOf(d).toLocaleDateString('en-US', o);
@@ -73,12 +119,23 @@ export function ScheduleScreen({ go }: { go: Go }) {
   const [hide, setHide] = useState<Partial<Record<Cat, boolean>>>({});
   const [edit, setEdit] = useState<string | null>(null);
   const [w, setW] = useState(1200);
+  const [cell, setCell] = useState({ w: 120, h: 104 });
+  const dayScroll = useRef<ScrollView>(null);
   const all = calItems(shop, t, sc);
   const items = all.filter(x => !hide[x.cat]);
   const byDay: Record<number, Item[]> = {};
   items.forEach(x => (byDay[x.d] = byDay[x.d] || []).push(x));
   const preview = parseQuick(q);
   const wide = w >= 980;
+  // Day view opens at the first timed thing that day, or an hour before now on today, or 8 AM
+  const firstTimed = (byDay[sel] || []).filter(x => x.time).map(x => +x.time!.slice(0, 2) * 60 + +x.time!.slice(3));
+  const topM = sel === 0 ? Math.max(8 * 60, new Date().getHours() * 60 - 60) : firstTimed.length ? Math.min(...firstTimed) - 30 : 8 * 60;
+  useEffect(() => {
+    if (view !== 'day') return;
+    const y = Math.max(0, ((topM - 6 * 60) / 60) * 52);
+    const id = setTimeout(() => dayScroll.current?.scrollTo({ y, animated: false }), 30);
+    return () => clearTimeout(id);
+  }, [view, sel, topM]);
   const quickAdd = () => {
     if (!preview) return;
     const id = addEvent(preview);
@@ -144,14 +201,20 @@ export function ScheduleScreen({ go }: { go: Go }) {
                 return (
                   <Pressable key={i} accessibilityRole="button" accessibilityState={{ selected: isSel }} accessibilityLabel={`${dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${list.length ? `, ${plural(list.length, 'item')}` : ''}`}
                     onPress={() => setSel(d)} onLongPress={() => newOn(d)}
+                    onLayout={wk === 0 && i === 0 ? e => setCell({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height }) : undefined}
                     style={{ flex: 1, minHeight: wide ? 104 : 84, padding: 6, gap: 3, borderLeftWidth: i ? 1 : 0, borderLeftColor: t.line, backgroundColor: isSel ? t.tint2 : 'transparent' }}>
                     <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: d === 0 ? t.action : 'transparent', marginLeft: 2 }}>
                       <Text style={{ fontSize: F.f15, fontWeight: d === 0 ? '700' : '500', color: d === 0 ? t.onAction : dimmed ? t.text3 : t.text }}>{dt.getDate()}</Text>
                     </View>
                     {list.slice(0, 3).map(x => (
-                      <View key={x.key} style={{ borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2, backgroundColor: t.sunken, borderLeftWidth: 3, borderLeftColor: x.c }}>
+                      <Draggable key={x.key} item={x} onTap={() => open(x)} onDrop={(dx, dy) => {
+                        const delta = Math.round(dx / cell.w) + 7 * Math.round(dy / cell.h);
+                        if (!delta || !x.mv) return;
+                        moveItem(x.mv, delta);
+                        showSnack(`${x.t.replace(/ \(day.*$/, '')} moved to ${fmtD(x.d + delta, { weekday: 'short', month: 'short', day: 'numeric' })}`, () => moveItem(x.mv!, -delta));
+                      }} style={{ borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2, backgroundColor: t.sunken, borderLeftWidth: 3, borderLeftColor: x.c }}>
                         <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '600', color: t.text }}>{x.t}</Text>
-                      </View>
+                      </Draggable>
                     ))}
                     {list.length > 3 ? <Text style={{ fontSize: 12, color: t.text3 }}>+{list.length - 3} more</Text> : null}
                   </Pressable>
@@ -245,7 +308,8 @@ export function ScheduleScreen({ go }: { go: Go }) {
             </Pressable>
           ))}
         </View>
-        <View style={[{ backgroundColor: t.surface, borderRadius: 20, overflow: 'hidden' }, shadow(t.dark)]}>
+        <View style={[{ backgroundColor: t.surface, borderRadius: 20, overflow: 'hidden', height: 560 }, shadow(t.dark)]}>
+          <ScrollView ref={dayScroll}>
           <View style={{ height: (H1 - H0) * PH }}>
             {Array.from({ length: H1 - H0 }, (_, i) => (
               <Pressable key={i} accessibilityRole="button" accessibilityLabel={`Add at ${clock12(`${H0 + i}:00`)}`} onPress={() => setEdit(addEvent({ day: addDays(todayDay(), sel), title: '', kind: 'other', time: `${String(H0 + i).padStart(2, '0')}:00`, dur: 60 }))}
@@ -256,15 +320,24 @@ export function ScheduleScreen({ go }: { go: Go }) {
             {place.map(({ x, a, b, c }) => {
               const A = Math.max(H0 * 60, a), B = Math.min(H1 * 60, b);
               return (
-                <Pressable key={x.key} accessibilityRole="button" onPress={() => open(x)}
+                <Draggable key={x.key} item={x} onTap={() => open(x)} onDrop={(dx, dy) => {
+                  if (!x.mv) return;
+                  const dm = Math.round(((dy / PH) * 60) / 15) * 15;
+                  const nt = addMin(x.time!, dm);
+                  if (!dm) return;
+                  const was = x.time!;
+                  moveItem(x.mv, 0, nt);
+                  showSnack(`${x.t} moved to ${clock12(nt)}`, () => moveItem(x.mv!, 0, was));
+                }}
                   style={{ position: 'absolute', top: ((A - H0 * 60) / 60) * PH + 1, height: Math.max(24, ((B - A) / 60) * PH - 2), left: `${12 + (c / nc) * 86}%`, width: `${86 / nc - 1}%`, borderRadius: 10, backgroundColor: t.tint2, borderLeftWidth: 4, borderLeftColor: x.c, paddingHorizontal: 8, paddingVertical: 4, overflow: 'hidden' }}>
                   <Text numberOfLines={1} style={{ fontSize: F.f14, fontWeight: '700', color: t.text }}>{x.t}</Text>
                   <Text numberOfLines={1} style={{ fontSize: 12, color: t.text2 }}>{clock12(x.time!)}–{clock12(addMin(x.time!, x.dur || 60))}</Text>
-                </Pressable>
+                </Draggable>
               );
             })}
             {sel === 0 && nowM >= H0 * 60 && nowM <= H1 * 60 ? <View pointerEvents="none" style={{ position: 'absolute', left: 56, right: 0, top: ((nowM - H0 * 60) / 60) * PH, height: 2, backgroundColor: t.danger }} /> : null}
           </View>
+          </ScrollView>
         </View>
       </View>
     );
@@ -331,7 +404,7 @@ export function ScheduleScreen({ go }: { go: Go }) {
     </View>
   );
 
-  const CATS: [Cat, string, string][] = [['run', 'Runs', t.barA], ['order', 'Orders', t.action], ['market', 'Markets', MARKET], ['quote', 'Quotes', t.text3], ['mine', 'Your events', '#b5643c']];
+  const CATS: [Cat, string, string][] = [['run', 'Runs', t.barA], ['order', 'Orders', t.action], ['market', 'Markets', MARKET], ['fabric', 'Fabric', FABRIC], ['quote', 'Quotes', t.text3], ['mine', 'Your events', '#b5643c']];
   const ev = edit ? shop.cal.find(e => e.id === edit) : null;
   return (
     <ScrollView contentContainerStyle={{ alignItems: 'center' }} onLayout={e => setW(e.nativeEvent.layout.width)}>
@@ -349,7 +422,7 @@ export function ScheduleScreen({ go }: { go: Go }) {
           </View>
           {preview ? (
             <Text style={{ fontSize: F.f14, color: t.text2, paddingHorizontal: 6 }}>
-              <Text style={{ fontWeight: '700', color: t.text }}>{preview.title}</Text> · {KIND[preview.kind][0]} · {dayLabel(preview.day, { weekday: 'short', month: 'short', day: 'numeric' })}{preview.days > 1 ? ` for ${preview.days} days` : ''}{preview.time ? ` · ${clock12(preview.time)}–${clock12(addMin(preview.time, preview.dur || 60))}` : ' · all day'}{preview.loc ? ` · ${preview.loc}` : ''}{preview.kind === 'market' || preview.kind === 'off' ? ' · day off for runs' : ''}
+              <Text style={{ fontWeight: '700', color: t.text }}>{preview.title}</Text> · {KIND[preview.kind][0]} · {dayLabel(preview.day, { weekday: 'short', month: 'short', day: 'numeric' })}{preview.days > 1 ? ` for ${preview.days} days` : ''}{preview.time ? ` · ${clock12(preview.time)}–${clock12(addMin(preview.time, preview.dur || 60))}` : ' · all day'}{preview.loc ? ` · ${preview.loc}` : ''}{preview.rep ? ` · ${REP_LAB[preview.rep].toLowerCase()}` : ''}{preview.kind === 'market' || preview.kind === 'off' ? ' · day off for runs' : ''}
             </Text>
           ) : null}
         </View>
@@ -417,9 +490,20 @@ function EventSheet({ e, onClose }: { e: CalEvent; onClose: () => void }) {
           <T s="sub">Until {clock12(addMin(e.time, e.dur || 60))}</T>
         </View>
       ) : null}
+      <View style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <View style={{ gap: 4 }}>
+          <T s="label">Repeats</T>
+          <Segmented bare label="Repeats" value={e.rep || ''} onChange={v => set({ rep: v })} options={[['', 'Never'], ['w', 'Weekly'], ['2w', 'Every 2 weeks'], ['m', 'Monthly']]} />
+        </View>
+        <View style={{ gap: 4 }}>
+          <T s="label">Remind me</T>
+          <Select label="Remind me" width={170} value={String(e.remind || 0)} onChange={v => set({ remind: +v })}
+            options={e.time ? [['0', 'No reminder'], ['15', '15 min before'], ['60', '1 hour before'], ['180', '3 hours before'], ['1440', 'The day before']] : [['0', 'No reminder'], ['1440', 'The day before'], ['2880', '2 days before']]} />
+        </View>
+      </View>
       <Field label="Where" value={e.loc || ''} onChange={v => set({ loc: v })} placeholder="Optional" />
       <Field label="Notes" value={e.notes} onChange={v => set({ notes: v })} multiline />
-      <T s="small" color={t.text3}>{e.kind === 'market' || e.kind === 'off' ? 'That day’s free hours are taken out of run planning.' : 'Shown on the calendar; your free hours stay the same.'}</T>
+      <T s="small" color={t.text3}>{e.kind === 'market' || e.kind === 'off' ? 'That day’s free hours are taken out of run planning.' : 'Shown on the calendar; your free hours stay the same.'}{e.remind ? ' The reminder goes to the bell and, if they’re on, a Windows notification.' : ''}{e.rep ? ' Changing the day moves every repeat.' : ''}</T>
       {cal ? <CalendarSheet title="Day" value={e.day} onPick={d => { if (d) set({ day: d }); setCal(false); }} onClose={() => setCal(false)} /> : null}
     </Sheet>
   );

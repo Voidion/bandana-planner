@@ -22,3 +22,8 @@ test('past dates roll to next year', () => {
 test('8-2pm reads as morning to afternoon', () => {
   expect(parseQuick('market sat 8-2pm', T)).toMatchObject({ time: '08:00', dur: 360 });
 });
+test('repeats', () => {
+  expect(parseQuick('sewing every thursday 7pm', T)).toMatchObject({ kind: 'sew', day: '2026-10-08', rep: 'w', time: '19:00' });
+  expect(parseQuick('Craft guild monthly oct 20', T)).toMatchObject({ rep: 'm', day: '2026-10-20', title: 'Craft guild' });
+  expect(parseQuick('pickup every 2 weeks fri 3pm', T)).toMatchObject({ rep: '2w', kind: 'pickup', day: '2026-10-09' });
+});

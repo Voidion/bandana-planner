@@ -14,6 +14,7 @@ import { Note, PageHead } from '../ui/proto';
 import { F, R, shadow, useTheme } from '../ui/theme';
 import { useNow } from '../ui/useNow';
 import { SetupScreen } from './SetupScreen';
+import { CuttingSettings } from './CuttingSettings';
 import { ShopSettings } from './AppWide';
 import { ProductsSettings } from './ProductsSettings';
 import { PricingSettings } from './PricingSettings';
@@ -86,7 +87,8 @@ export function SettingsScreen({ tab, setTab, openRun }: { tab: SettingsTab; set
     : cur === 'hours' ? <Hours />
     : cur === 'quote' ? <QuoteLook />
     : cur === 'prices' || cur === 'fees' || cur === 'shipping' || cur === 'bundles' || cur === 'bills' ? <PricingSettings part={cur} />
-    : cur === 'sizes' || cur === 'cutting' || cur === 'cutfiles' || cur === 'fabric' ? <SetupScreen part={cur} />
+    : cur === 'cutting' ? <CuttingSettings />
+    : cur === 'sizes' || cur === 'cutfiles' || cur === 'fabric' ? <SetupScreen part={cur} />
     : cur === 'products' ? <ProductsSettings />
     : cur === 'templates' ? <Templates />
     : cur === 'timers' ? <Timers openRun={openRun} />

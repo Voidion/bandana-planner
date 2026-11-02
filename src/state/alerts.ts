@@ -2,6 +2,7 @@
    Each can be dismissed (gone until it changes) or snoozed (back later). */
 import { mins, money, plural, relDue, yd } from '../lib/format';
 import { addDays, rel, schedule, timerMs, todayDay, unitMinutes } from '../lib/plan';
+import { clock12 } from '../lib/quickAdd';
 import { taskLeft, taskState, toolState, unitWord, usedTool } from './equip';
 import { freeStock, isLate, orderCount, saleOwed, saleTotal } from './selling';
 import { restockList } from './shelf';
@@ -9,8 +10,8 @@ import { getShop, update } from './store';
 import type { Shop } from './types';
 
 export type AlertTone = 'bad' | 'warn' | 'info';
-export type AlertIcon = 'clock' | 'runs' | 'cart' | 'fabric' | 'price' | 'coin' | 'wrench' | 'wallet';
-export type AlertKind = 'timer' | 'due' | 'orders' | 'restock' | 'quotes' | 'market' | 'tools' | 'payments';
+export type AlertIcon = 'clock' | 'runs' | 'cart' | 'fabric' | 'price' | 'coin' | 'wrench' | 'wallet' | 'cal';
+export type AlertKind = 'timer' | 'due' | 'orders' | 'restock' | 'quotes' | 'market' | 'events' | 'tools' | 'payments';
 export interface Alert {
   id: string;
   kind: AlertKind;
@@ -30,9 +31,36 @@ export const REM_KINDS: [AlertKind, string, string, AlertIcon][] = [
   ['restock', 'Running low', 'Fabric and supplies at or under their low mark', 'fabric'],
   ['quotes', 'Quotes ending', 'Ending soon or already ended', 'price'],
   ['market', 'Market prep', 'A market day in the next few days', 'coin'],
+  ['events', 'Your events', 'When an event you set a reminder on is coming up', 'cal'],
   ['tools', 'Maintenance', 'Blades, mats, needles and machines due', 'wrench'],
   ['payments', 'Payments overdue', 'Money owed past its due date', 'wallet'],
 ];
+
+/** Every day an event lands on between two days from today (repeats expanded) */
+export function calOccurrences(s: Shop, from: number, to: number) {
+  const out: { e: Shop['cal'][number]; day: string; n: number }[] = [];
+  s.cal.forEach(e => {
+    const d0 = rel(e.day);
+    if (d0 == null) return;
+    const step = e.rep === 'w' ? 7 : e.rep === '2w' ? 14 : 0;
+    const days: string[] = [];
+    if (step) {
+      for (let d = d0, n = 0; d <= to && n < 400; d += step, n++) if (d >= from) days.push(addDays(e.day, d - d0));
+    } else if (e.rep === 'm') {
+      const b = new Date(e.day + 'T12:00:00');
+      for (let n = 0; n < 36; n++) {
+        const x = new Date(b.getFullYear(), b.getMonth() + n, b.getDate(), 12);
+        if (x.getDate() !== b.getDate()) continue;
+        const day = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+        const d = rel(day)!;
+        if (d > to) break;
+        if (d >= from) days.push(day);
+      }
+    } else if (d0 >= from - Math.max(1, e.days || 1) + 1 && d0 <= to) days.push(e.day);
+    days.forEach((day, n) => out.push({ e, day, n }));
+  });
+  return out;
+}
 
 const short = (n: string) => (n || 'Untitled run').split(' — ')[0];
 const dshort = (day: string) => new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -158,6 +186,15 @@ export function alertsAll(s: Shop, now = Date.now()): Alert[] {
   s.sales.filter(isLate).forEach(e => {
     const who = custName(s, e.cust, e.ch || 'Someone');
     add({ id: `pay:${e.id}:${saleOwed(e)}`, kind: 'payments', tone: 'warn', icon: 'wallet', t: `${who} owes ${money(saleOwed(e))}`, s: `${e.ref || money(saleTotal(e))} · was due ${dshort(e.due!)}`, act: { label: 'Open payment', route: 'sales', id: e.id }, rank: 2.8 });
+  });
+  // Your events with a reminder: from that many minutes before until they start
+  calOccurrences(s, -1, 40).forEach(({ e, day }) => {
+    if (!e.remind) return;
+    const start = new Date(day + 'T' + (e.time || '00:00') + ':00').getTime();
+    if (now < start - e.remind * 6e4 || now >= start + (e.time ? 0 : 864e5)) return;
+    const d = rel(day)!;
+    const when = d === 0 ? (e.time ? 'today at ' + clock12(e.time) : 'today') : d === 1 ? (e.time ? 'tomorrow at ' + clock12(e.time) : 'tomorrow') : dshort(day) + (e.time ? ' at ' + clock12(e.time) : '');
+    add({ id: `ev:${e.id}:${day}`, kind: 'events', tone: 'info', icon: 'cal', t: `${e.title || 'Event'} ${when}`, s: [e.loc, e.notes].filter(Boolean).join(' · ') || 'On your schedule', act: { label: 'Open schedule', route: 'schedule' }, rank: 2.5 });
   });
   return L.sort((a, b) => a.rank - b.rank);
 }

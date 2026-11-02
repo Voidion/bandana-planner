@@ -248,7 +248,6 @@ export function listingPlainText(shop: Shop, r: Run): string {
 
 /* ---------- strip width ---------- */
 export const CUT_MIN_W = 6;
-const lastSynced = () => lastShop;
 /** Strip widths that divide the bolt exactly (quarter inches, within the mat) */
 export function cutExact(shop: Shop) {
   const c = shop.cfg.cut;
@@ -261,37 +260,93 @@ export function cutExact(shop: Shop) {
   }
   return out.sort((a, b) => a - b);
 }
-/** The strip width that uses the least fabric for the runs waiting to be cut (or a usual 12 M + 6 L run), fewest mats on a tie */
-export function leastWasteWidth(shop: Shop): { w: number; wst: number; mats: number } | null {
-  const c = shop.cfg.cut;
-  const vm = MATS.find(m => m.id === c.mat) || MATS[1];
+/** What's left to cut (or a usual 12 Medium + 6 Large run when nothing is), with each run's own fabric */
+export function wasteJobs(shop: Shop) {
   const jobs = shop.runs.filter(r => r.status !== 'done' && !r.cut && Object.values(r.qty || {}).some(Boolean));
-  const list = jobs.length ? jobs.map(r => ({ qty: r.qty, body: shop.fabrics.find(f => f.id === r.body) || null, strap: shop.fabrics.find(f => f.id === r.ties) || null, prod: r.prod || {} })) : [{ qty: { M: 12, L: 6 } as Record<string, number>, body: null, strap: null, prod: {} }];
-  const mx = Math.min(vm.mw, c.bolt);
-  const was = lastSynced();
-  let best: { w: number; fabA: number; wst: number; mats: number } | null = null;
+  const ready = (q: Record<string, number>) => {
+    const o: Record<string, number> = {};
+    Object.entries(q || {}).forEach(([k, n]) => { if (n && sizeReady(shop, k)) o[k] = n; });
+    return o;
+  };
+  return jobs.length
+    ? jobs.map(r => ({ run: r, qty: ready(r.qty), body: shop.fabrics.find(f => f.id === r.body) || null, strap: shop.fabrics.find(f => f.id === r.ties) || null, prod: r.prod || {} }))
+    : [{ run: null, qty: ready({ M: 12, L: 6 }), body: null, strap: null, prod: {} }];
+}
+/** Runs a function with the engine set to another strip width, then puts the shop back */
+function atWidth<T>(shop: Shop, w: number, fn: () => T): T {
+  const was = lastShop;
   try {
-    for (let w = CUT_MIN_W; w <= mx + 1e-9; w += 0.25) {
-      sync({ ...shop, cfg: { ...shop.cfg, cut: { ...c, width: w } } });
-      let fabA = 0, pc = 0, mats = 0, lost = 0, re = 0;
-      for (const j of list) {
-        const qty: Record<string, number> = {};
-        Object.entries(j.qty).forEach(([k, n]) => { if (n && sizeReady(shop, k)) qty[k] = n; });
-        const p = E.cutPlan(qty, { body: j.body, strap: j.strap, prod: j.prod });
-        fabA += (p.cutArea || 0) + (p.sideArea || 0);
-        pc += p.pieceArea || 0;
-        re += p.reuse || 0;
-        mats += (p.mats || []).length;
-        lost += p.tooBig || 0;
-      }
-      if (lost) continue;
-      fabA -= re;
-      const wst = fabA + re ? 1 - (pc + re) / (fabA + re) : 1;
-      if (!best || fabA < best.fabA - 1e-6 || (Math.abs(fabA - best.fabA) < 1e-6 && mats < best.mats)) best = { w, fabA, wst, mats };
-    }
+    sync({ ...shop, cfg: { ...shop.cfg, cut: { ...shop.cfg.cut, width: w } } });
+    return fn();
   } finally {
     lastShop = null;
     sync(was || shop);
   }
+}
+function wasteAt(shop: Shop, list: ReturnType<typeof wasteJobs>, fast: boolean) {
+  let fabA = 0, pc = 0, mats = 0, lost = 0, re = 0;
+  for (const j of list) {
+    if (!Object.keys(j.qty).length) continue;
+    const p = E.cutPlan(j.qty, { body: j.body, strap: j.strap, prod: j.prod, fast });
+    fabA += (p.cutArea || 0) + (p.sideArea || 0);
+    pc += p.pieceArea || 0;
+    re += p.reuse || 0;
+    mats += (p.mats || []).length;
+    lost += p.tooBig || 0;
+  }
+  return { fabA, pc, re, mats, lost };
+}
+/** Waste at every half inch the mat allows, for what's left to cut (the prototype's colour strip under the slider) */
+let heatMemo: { key: string; v: { pts: { w: number; waste: number; lost: number }[]; best: { w: number; waste: number } | null; mx: number } } | null = null;
+export function wasteHeat(shop: Shop) {
+  const c = shop.cfg.cut;
+  const vm = MATS.find(m => m.id === c.mat) || MATS[1];
+  const mx = Math.min(vm.mw, c.bolt);
+  const list = wasteJobs(shop);
+  const key = JSON.stringify([c.bolt, c.matLen, c.mat, c.gap, c.strapTurn, c.useScraps, c.minScrap, mx, shop.sizes, shop.straps.map(x => [x.id, x.w, x.l, x.file && x.file.name]), list.map(j => [j.qty, j.prod, j.body && [j.body.id, j.body.way], j.strap && j.strap.id])]);
+  if (heatMemo && heatMemo.key === key) return heatMemo.v;
+  const pts: { w: number; waste: number; lost: number }[] = [];
+  for (let w = CUT_MIN_W; w <= mx + 1e-9; w += 0.5) {
+    const r = atWidth(shop, w, () => wasteAt(shop, list, true));
+    pts.push({ w, waste: r.fabA ? 1 - (r.pc + r.re) / r.fabA : 1, lost: r.lost });
+  }
+  const ok = pts.filter(p => !p.lost);
+  const best = ok.length ? ok.reduce((a, b) => (b.waste < a.waste - 1e-9 ? b : a)) : null;
+  const v = { pts, best: best ? { w: best.w, waste: best.waste } : null, mx };
+  heatMemo = { key, v };
+  return v;
+}
+/** Waste at the current strip width for what's left to cut */
+export function wasteNow(shop: Shop) {
+  sync(shop);
+  const r = wasteAt(shop, wasteJobs(shop), true);
+  return r.fabA ? 1 - (r.pc + r.re) / r.fabA : 0;
+}
+/** The strip width that uses the least fabric for the runs waiting to be cut (or a usual 12 M + 6 L run), fewest mats on a tie */
+export function leastWasteWidth(shop: Shop): { w: number; wst: number; mats: number } | null {
+  const c = shop.cfg.cut;
+  const vm = MATS.find(m => m.id === c.mat) || MATS[1];
+  const list = wasteJobs(shop);
+  const mx = Math.min(vm.mw, c.bolt);
+  let best: { w: number; fabA: number; wst: number; mats: number } | null = null;
+  for (let w = CUT_MIN_W; w <= mx + 1e-9; w += 0.25) {
+    const { fabA: fa, pc, re, mats, lost } = atWidth(shop, w, () => wasteAt(shop, list, false));
+    if (lost) continue;
+    const fabA = fa - re;
+    const wst = fabA + re ? 1 - (pc + re) / (fabA + re) : 1;
+    if (!best || fabA < best.fabA - 1e-6 || (Math.abs(fabA - best.fabA) < 1e-6 && mats < best.mats)) best = { w, fabA, wst, mats };
+  }
   return best ? { w: best.w, wst: best.wst, mats: best.mats } : null;
+}
+/** A plan for any quantities at the current settings (the example layout in Settings) */
+export function examplePlan(shop: Shop, qty: Record<string, number>) {
+  sync(shop);
+  const q: Record<string, number> = {};
+  Object.entries(qty).forEach(([k, n]) => { if (n && sizeReady(shop, k)) q[k] = n; });
+  return Object.keys(q).length ? E.cutPlan(q, {}) : null;
+}
+/** One run's plan with its own fabric (the runs-still-to-cut list in Settings) */
+export function runPlanNow(shop: Shop, j: ReturnType<typeof wasteJobs>[number]) {
+  sync(shop);
+  return Object.keys(j.qty).length ? E.cutPlan(j.qty, { body: j.body, strap: j.strap, prod: j.prod }) : null;
 }
