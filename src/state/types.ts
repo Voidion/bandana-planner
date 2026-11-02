@@ -249,6 +249,29 @@ export interface CalEvent {
   notes: string;
 }
 
+export interface Photo {
+  id: string;
+  /** file:///… in the app's photos folder (or a data URL in the browser preview) */
+  src: string;
+  name: string;
+  added: Day;
+  run: string | null;
+  fabric: string | null;
+  cust: string | null;
+  fav: boolean;
+  albums: string[];
+  note: string;
+  /** In Recently Deleted since this day; removed for good after 30 days */
+  deleted: Day | null;
+}
+export interface Album {
+  id: string;
+  name: string;
+  /** A client album: photos of their order, ready to save and send */
+  cust: string | null;
+  cover: string | null;
+}
+
 export interface Tool {
   id: string;
   name: string;
@@ -520,6 +543,8 @@ export interface Shop {
   market: MarketDay;
   cal: CalEvent[];
   tools: Tool[];
+  photos: Photo[];
+  albums: Album[];
   goals: { income: number; hours: number };
   usage: UsageLine[];
   products: Product[];

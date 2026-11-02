@@ -13,17 +13,19 @@ import { RestockScreen, SuppliersScreen, SuppliesScreen } from './src/screens/Sh
 import { CustomersScreen, OrdersScreen, SalesScreen } from './src/screens/SellingScreens';
 import { QuotesScreen } from './src/screens/QuotesScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
+import { PhotosScreen } from './src/screens/PhotosScreen';
 import { ActivityScreen, MaintenanceScreen, ReportsScreen, ScheduleScreen, TodayScreen } from './src/screens/NumbersScreens';
 import { freeStock, isLate, orderStage, saleOwed } from './src/state/selling';
 import { restockList } from './src/state/shelf';
 import { toolDue } from './src/state/planning';
+import { purgeOld } from './src/state/photos';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
-import { BatchesIcon, BoxIcon, CalIcon, CartIcon, ChartIcon, ClockIcon, EditIcon, HomeIcon, TruckIcon, WrenchIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
+import { PhotoIcon, BatchesIcon, BoxIcon, CalIcon, CartIcon, ChartIcon, ClockIcon, EditIcon, HomeIcon, TruckIcon, WrenchIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
 import { Button, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
 
-type Route = 'today' | 'schedule' | 'reports' | 'maintenance' | 'activity' | 'runs' | 'orders' | 'quotes' | 'market' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
+type Route = 'photos' | 'today' | 'schedule' | 'reports' | 'maintenance' | 'activity' | 'runs' | 'orders' | 'quotes' | 'market' | 'sales' | 'customers' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
 
 export default function App() {
   const t = useTheme();
@@ -39,6 +41,7 @@ export default function App() {
   const go = (r: string, id?: string) => {
     if (r === 'runs' && id) return openRun(id);
     if (r === 'orders' && id) return openOrder(id);
+    if (r === 'fabric' && id) return openFabric(id);
     if (r === 'quotes' && id) setQuoteSel(id);
     if (r === 'settings' && id) setSetTab(id as SettingsTab);
     setRoute(r as Route);
@@ -58,7 +61,13 @@ export default function App() {
 
   const load = () => {
     setReady('loading');
-    loadShop().then(() => setReady('ok'), () => setReady('error'));
+    loadShop().then(
+      () => {
+        purgeOld();
+        setReady('ok');
+      },
+      () => setReady('error'),
+    );
   };
   useEffect(() => {
     load();
@@ -95,6 +104,8 @@ export default function App() {
             <ScheduleScreen go={go} />
           ) : route === 'reports' ? (
             <ReportsScreen />
+          ) : route === 'photos' ? (
+            <PhotosScreen go={go} />
           ) : route === 'maintenance' ? (
             <MaintenanceScreen />
           ) : route === 'activity' ? (
@@ -204,6 +215,7 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
       {item('stock', 'Finished stock', c => <BoxIcon color={c} />, stock ? String(stock) : undefined)}
       <View style={{ height: 10 }} />
       {item('reports', 'Reports', c => <ChartIcon color={c} />)}
+      {item('photos', 'Photos', c => <PhotoIcon color={c} />)}
       {item('maintenance', 'Maintenance', c => <WrenchIcon color={c} />, shop.tools.filter(toolDue).length ? 'Due' : undefined, true)}
       {item('activity', 'Activity', c => <ClockIcon color={c} />)}
       {item('settings', 'Settings', c => <GearIcon color={c} />)}

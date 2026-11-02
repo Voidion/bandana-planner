@@ -178,3 +178,10 @@ export const TruckIcon = I(
 export const HomeIcon = I(<Path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" />);
 export const ChartIcon = I(<Path d="M4.5 19.5h15M7 16v-4M11 16V8M15 16v-6M19 16V5" />);
 export const WrenchIcon = I(<Path d="M14.7 6.3a4 4 0 0 0-5.2 5.2L4.5 16.5a1.8 1.8 0 0 0 2.5 2.5l5-5a4 4 0 0 0 5.2-5.2l-2.4 2.4-2.1-.4-.4-2.1z" />);
+export const PhotoIcon = I(
+  <>
+    <Rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+    <Circle cx="9" cy="10" r="1.6" />
+    <Path d="m4 17 5-4.5 3.5 3 3-2.5L20 17" />
+  </>,
+);

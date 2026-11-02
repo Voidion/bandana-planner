@@ -12,6 +12,9 @@ type FilesModule = {
   dataFolder(): Promise<string>;
   openTextFile(title: string, kind: string, pattern: string): Promise<string>;
   openPath?(path: string): Promise<boolean>;
+  pickPhotos?(): Promise<string>;
+  deleteFile?(path: string): Promise<boolean>;
+  copyFiles?(paths: string[], folder: string): Promise<string>;
 };
 
 function nativeFiles(): FilesModule | null {
@@ -110,4 +113,41 @@ export async function saveDocument(folder: string, name: string, text: string, t
     a.click();
   }
   return name;
+}
+
+/** Windows' Open dialog for pictures; each is copied into the app's photos folder. Returns where they were saved. */
+export async function pickPhotos(): Promise<{ src: string; name: string }[]> {
+  if (files && files.pickPhotos) {
+    const list = JSON.parse((await files.pickPhotos()) || '[]') as { path: string; name: string }[];
+    return list.map(p => ({ src: 'file:///' + p.path.replace(/\\/g, '/'), name: p.name }));
+  }
+  if (!web.document) return [];
+  return new Promise(resolve => {
+    const input = web.document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = async () => {
+      const out: { src: string; name: string }[] = [];
+      for (const f of Array.from(input.files || []) as any[]) {
+        out.push(await new Promise(res => {
+          const r = new web.FileReader();
+          r.onload = () => res({ src: String(r.result), name: f.name });
+          r.readAsDataURL(f);
+        }));
+      }
+      resolve(out);
+    };
+    input.click();
+  });
+}
+const filePath = (src: string) => (src.startsWith('file:///') ? src.slice(8).replace(/\//g, '\\') : '');
+export async function deletePhotoFile(src: string) {
+  const p = filePath(src);
+  if (p && files && files.deleteFile) await files.deleteFile(p);
+}
+export async function exportPhotos(srcs: string[], folder: string): Promise<string | null> {
+  const ps = srcs.map(filePath).filter(Boolean);
+  if (ps.length && files && files.copyFiles) return files.copyFiles(ps, folder);
+  return null;
 }

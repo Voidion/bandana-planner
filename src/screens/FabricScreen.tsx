@@ -6,6 +6,7 @@ import { SWATCHES } from '../state/defaults';
 import { addFabric, deleteFabric, editFabric, restoreFabric, useShop } from '../state/store';
 import { addOffcut, arrived, cancelOrder, forecast, markOrdered, weeklyUse } from '../state/shelf';
 import { SupplierSelect } from './ShelfScreens';
+import { PhotoStrip } from './PhotosScreen';
 import type { Fabric, PrintTop } from '../state/types';
 import { FabricIcon, PlusIcon, SearchIcon, TrashIcon, WarnIcon } from '../ui/icons';
 import { Bar, Button, Card, Chip, Empty, Field, NumField, Row, Section, Segmented, Sheet, showSnack, Swatch, T } from '../ui/kit';
@@ -184,6 +185,8 @@ function FabricDetail({ f, onPlanWith, openRun }: { f: Fabric; onPlanWith: (id: 
           </View>
         </Card>
       </Section>
+
+      <PhotoStrip link={{ fabric: f.id }} />
 
       <Section title="Runs">
         <Card pad={false} style={{ overflow: 'hidden' }}>

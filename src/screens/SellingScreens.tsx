@@ -41,6 +41,7 @@ import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, S
 import { F, R, useTheme } from '../ui/theme';
 import { CartIcon, TagIcon, StoreIcon } from '../ui/icons';
 import { ShopifyImport } from './ShopifyImport';
+import { PhotoStrip } from './PhotosScreen';
 
 const twoPane = (left: React.ReactNode, right: React.ReactNode, t: any, w = 360) => (
   <View style={{ flex: 1, flexDirection: 'row' }}>
@@ -468,6 +469,7 @@ function CustomerDetail({ c, openOrder, onDeleted }: { c: Customer; openOrder: (
           );
         }) : <T s="sub">Add their dogs with neck size and the size they wear; orders for them show it.</T>}
       </Section>
+      <PhotoStrip link={{ cust: c.id }} title="Photos of their dogs and orders" />
       <Section title="Orders" right={<Button small kind="ghost" title="New order" onPress={() => openOrder(addOrder({ cust: c.id }))} />}>
         <Card pad={false} style={{ overflow: 'hidden' }}>
           {orders.length ? orders.map((o, i) => (

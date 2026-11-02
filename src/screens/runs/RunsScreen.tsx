@@ -22,6 +22,7 @@ import { ChevIcon, CloseIcon, DefectIcon, PlusIcon, ScissorsIcon, TrashIcon, War
 import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, showSnack, Stepper, Swatch, T } from '../../ui/kit';
 import { F, R, useTheme } from '../../ui/theme';
 import { CutLayout, InThisRun, MoneyCard, otherCount, shortName, StepRow, Tile } from './parts';
+import { PhotoStrip } from '../PhotosScreen';
 import { CutSheet, DefectSheet, FabricPicker, FinishSheet, StepSheet } from './sheets';
 
 type SheetState = null | { k: 'cut' } | { k: 'step'; id: string } | { k: 'finish' } | { k: 'defect' } | { k: 'pick'; role: 'body' | 'ties' };
@@ -402,6 +403,7 @@ function BenchView({ r, setSheet }: { r: Run; setSheet: (s: SheetState) => void 
     <View style={{ flex: wide ? 1.15 : undefined, alignSelf: wide ? undefined : 'stretch', gap: 22, minWidth: 0 }}>
       <StepsSection r={r} setSheet={setSheet} />
       <Field label="Notes" value={r.notes} onChange={v => editRun(r.id, { notes: v })} placeholder="Anything to remember about this run" multiline />
+      <PhotoStrip link={{ run: r.id }} />
       <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
         <Button kind={left ? 'secondary' : 'primary'} title={left ? `Finish run · ${plural(left, 'step')} left` : 'Finish run'} onPress={() => setSheet({ k: 'finish' })} />
         <Button kind="secondary" title="Log a defect" icon={c => <DefectIcon color={c} size={16} />} onPress={() => setSheet({ k: 'defect' })} />
@@ -481,6 +483,7 @@ function ReviewView({ r, setSel, setSheet }: { r: Run; setSel: (id: string | nul
         <T><T style={{ fontWeight: '700' }}>Next time. </T>{tip}</T>
       </View>
       {r.notes ? <Section title="Notes"><Card><T>{r.notes}</T></Card></Section> : null}
+      <PhotoStrip link={{ run: r.id }} />
       <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
         <Button title="Plan this again" onPress={() => { const id = planAgain(r.id); if (id) setSel(id); }} />
         <Button kind="secondary" title="Log a defect" icon={c => <DefectIcon color={c} size={16} />} onPress={() => setSheet({ k: 'defect' })} />

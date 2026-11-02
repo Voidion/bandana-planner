@@ -4,6 +4,10 @@
 //   saveCutFile(folder, name, text) -> Documents\Bandana Planner\<folder>\<name>, returns the full path
 //   revealFile(path)                -> opens File Explorer with the file selected
 //   openPath(path)                  -> opens a file in its usual app (a quote PDF in the PDF viewer)
+//   pickPhotos()                    -> Open dialog for pictures (several at once); copies each into the photos folder
+//                                      and returns [{"path","name","bytes"}] as JSON ("[]" if cancelled)
+//   deleteFile(path)                -> removes a photo file for good (only inside the photos folder)
+//   copyFiles(paths, folder)        -> copies files into Documents\Bandana Planner\<folder>, returns the folder
 //   dataFolder()                    -> the folder shop.json lives in
 //   openTextFile(title, kind, pattern) -> shows Windows' Open dialog; returns {"name","path","text"} as JSON, or "" if cancelled
 #pragma once
@@ -18,6 +22,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
@@ -235,6 +240,100 @@ struct BandanaFiles {
     std::wstring p = Widen(path);
     auto r = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", p.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
     promise.Resolve(r > 32);
+  }
+
+  REACT_METHOD(PickPhotos, L"pickPhotos")
+  void PickPhotos(winrt::Microsoft::ReactNative::ReactPromise<std::string> promise) noexcept {
+    try {
+      std::wstring filter = L"Pictures (*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp)";
+      filter.push_back(L'\0');
+      filter += L"*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp";
+      filter.push_back(L'\0');
+      filter.push_back(L'\0');
+      std::vector<wchar_t> buf(65536, L'\0');
+      OPENFILENAMEW ofn{};
+      ofn.lStructSize = sizeof(ofn);
+      ofn.hwndOwner = GetForegroundWindow();
+      ofn.lpstrFilter = filter.c_str();
+      ofn.lpstrFile = buf.data();
+      ofn.nMaxFile = static_cast<DWORD>(buf.size());
+      ofn.lpstrTitle = L"Add photos";
+      ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_ALLOWMULTISELECT;
+      if (!GetOpenFileNameW(&ofn)) {
+        promise.Resolve("[]");
+        return;
+      }
+      // One file: the full path. Several: the folder, then each name, each ending in \0, then a final \0.
+      std::vector<fs::path> picked;
+      std::wstring first(buf.data());
+      const wchar_t *p = buf.data() + first.size() + 1;
+      if (!*p) {
+        picked.push_back(fs::path(first));
+      } else {
+        while (*p) {
+          std::wstring name(p);
+          picked.push_back(fs::path(first) / name);
+          p += name.size() + 1;
+        }
+      }
+      fs::path dir = DataFolder() / L"photos";
+      std::error_code ec;
+      fs::create_directories(dir, ec);
+      std::string out = "[";
+      bool any = false;
+      ULONGLONG stamp = GetTickCount64();
+      int n = 0;
+      for (auto &src : picked) {
+        std::wstring ext = src.extension().wstring();
+        for (auto &c : ext) c = static_cast<wchar_t>(towlower(c));
+        fs::path dst = dir / (L"p" + std::to_wstring(stamp) + L"-" + std::to_wstring(n++) + ext);
+        if (!CopyFileW(src.c_str(), dst.c_str(), TRUE)) continue;
+        auto bytes = fs::file_size(dst, ec);
+        if (any) out += ",";
+        out += "{\"path\":\"" + JsonEscape(Narrow(dst.wstring())) + "\",\"name\":\"" + JsonEscape(Narrow(src.filename().wstring())) +
+            "\",\"bytes\":" + std::to_string(ec ? 0 : bytes) + "}";
+        any = true;
+      }
+      out += "]";
+      promise.Resolve(out);
+    } catch (...) {
+      promise.Reject(L"Couldn't add those photos");
+    }
+  }
+
+  REACT_METHOD(RemovePhotoFile, L"deleteFile")
+  void RemovePhotoFile(std::string path, winrt::Microsoft::ReactNative::ReactPromise<bool> promise) noexcept {
+    try {
+      fs::path file(Widen(path));
+      fs::path dir = DataFolder() / L"photos";
+      std::error_code ec;
+      auto rel = fs::relative(file, dir, ec);
+      if (ec || rel.empty() || rel.native().rfind(L"..", 0) == 0) {
+        promise.Resolve(false);
+        return;
+      }
+      promise.Resolve(fs::remove(file, ec));
+    } catch (...) {
+      promise.Resolve(false);
+    }
+  }
+
+  REACT_METHOD(CopyFiles, L"copyFiles")
+  void CopyFiles(std::vector<std::string> paths, std::string folder, winrt::Microsoft::ReactNative::ReactPromise<std::string> promise) noexcept {
+    try {
+      fs::path dir = KnownFolder(FOLDERID_Documents) / L"Bandana Planner" / SafeName(Widen(folder), L"Photos");
+      std::error_code ec;
+      fs::create_directories(dir, ec);
+      int n = 1;
+      for (auto &p : paths) {
+        fs::path src(Widen(p));
+        fs::path dst = dir / (std::to_wstring(n++) + src.extension().wstring());
+        CopyFileW(src.c_str(), dst.c_str(), FALSE);
+      }
+      promise.Resolve(Narrow(dir.wstring()));
+    } catch (...) {
+      promise.Reject(L"Couldn't copy the photos");
+    }
   }
 
   REACT_METHOD(GetDataFolder, L"dataFolder")
