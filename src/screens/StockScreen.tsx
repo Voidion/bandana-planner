@@ -1,105 +1,136 @@
-/* Finished stock: bandanas ready to sell, by size and by run. Finishing a run adds to it; counts can be fixed by hand. */
+/* Finished stock, laid out like the prototype: what's ready to sell, orders you can fill now, what's set aside,
+   and stock by run. Click a size to fix its count. */
 import React, { useState } from 'react';
-import { ScrollView, View } from 'react-native';
-import { money, plural } from '../lib/format';
-import { itemName, itemPrice } from '../lib/plan';
-import { adjustStock, stockBySize, useShop } from '../state/store';
-import { freeStock, orderLabel } from '../state/selling';
-import { RecordSaleSheet } from './SellingScreens';
-import { BoxIcon } from '../ui/icons';
-import { Button, Card, Chip, Empty, Row, Section, Sheet, Stepper, Swatch, T } from '../ui/kit';
-import { F, R, useTheme } from '../ui/theme';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { dayLabel, money, money0, plural, relDue } from '../lib/format';
+import { itemName, itemPrice, rel, runNumbers } from '../lib/plan';
+import { adjustStock, useShop } from '../state/store';
+import { canFill, fillFromStock, freeStock, orderCount, orderLabel, orderStage, unfill } from '../state/selling';
+import { ChevIcon, WarnIcon } from '../ui/icons';
+import { Button, Chip, Sheet, showSnack, Stepper, T } from '../ui/kit';
+import { CustAv, FitCard, Note, OCard, PageHead, Sect, Strip, Sublab, WList } from '../ui/proto';
+import { F, R, shadow, useTheme } from '../ui/theme';
+import { RunThumb } from '../ui/Thumbs';
 
-export function StockScreen({ openRun }: { openRun: (id: string) => void }) {
+export function StockScreen({ openRun, go }: { openRun: (id: string) => void; go?: (r: string, id?: string) => void }) {
   const shop = useShop();
   const t = useTheme();
   const [adj, setAdj] = useState<string | null>(null);
+  const [w, setW] = useState(1100);
   const by = freeStock(shop);
-  const [rec, setRec] = useState(false);
-  const aside = shop.orders.filter(o => o.status !== 'delivered' && (o.fromStock.length || (o.run && shop.stock.some(x => x.run === o.run))));
   const total = Object.values(by).reduce((a, b) => a + b, 0);
   const value = Object.entries(by).reduce((a, [k, n]) => a + n * (itemPrice(shop, k) || 0), 0);
+  const promisedRun = (rid: string) => shop.orders.some(o => o.status !== 'delivered' && o.run === rid);
   const groups: Record<string, { size: string; n: number }[]> = {};
-  shop.stock.forEach(s => (groups[s.run] = groups[s.run] || []).push(s));
-  const sizes: [string, { name: string; price: number | null }][] = [
-    ...Object.entries(shop.sizes).filter(([k, z]) => z.cw || by[k]),
-    ...shop.products.flatMap(p => p.variants).filter(v => v.price != null || by[v.id]).map(v => [v.id, { name: v.name, price: v.price }] as [string, { name: string; price: number | null }]),
-  ];
-  return (
-    <ScrollView contentContainerStyle={{ padding: 32, gap: 24, maxWidth: 980 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
-        <View style={{ gap: 4, flex: 1 }}>
-          <T s="title">Finished stock</T>
-          <T s="sub">Bandanas sewn and ready to sell. Finishing a run adds its bandanas here.</T>
-        </View>
-        <Button title="Record a sale" onPress={() => setRec(true)} />
+  shop.stock.filter(s => !promisedRun(s.run)).forEach(s => (groups[s.run] = groups[s.run] || []).push(s));
+  const sizes = Object.entries(shop.sizes).filter(([k, z]) => z.price != null || by[k]);
+  const prods = shop.products.map(p => [p, p.variants.filter(v => (by[v.id] || 0) > 0)] as const).filter(([, v]) => v.length);
+  const runsOf = (k: string) => new Set(shop.stock.filter(s => s.size === k && !promisedRun(s.run)).map(s => s.run)).size;
+  const fillable = shop.orders.filter(o => orderStage(shop, o) === 'plan' && canFill(shop, o));
+  const aside = shop.orders.filter(o => o.status !== 'delivered' && (o.fromStock.length || (o.run && shop.stock.some(x => x.run === o.run))));
+  const asideN = (o: (typeof aside)[number]) => (o.fromStock.length ? o.fromStock.reduce((a, l) => a + l.n, 0) : shop.stock.filter(x => x.run === o.run).reduce((a, x) => a + x.n, 0));
+  const ev = shop.cal.filter(e => e.kind === 'market' && (rel(e.day) ?? -1) >= 0).sort((a, b) => a.day.localeCompare(b.day))[0];
+  const goal = shop.market.goal || 30;
+  const ready = total >= goal;
+  const pend = shop.runs.filter(r => r.status === 'active');
+  const szRow = (k: string, name: string, price: number | null | undefined, n: number, sub: string) => (
+    <Pressable key={k} accessibilityRole="button" onPress={() => setAdj(k)} style={{ minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontSize: F.f16, fontWeight: '600', color: t.text }}>{name}</Text>
+        <Text style={{ fontSize: F.f14, color: t.text3 }}>{sub}</Text>
       </View>
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Card style={{ flex: 1, gap: 2 }}>
-          <T s="label">Ready to sell</T>
-          <T style={{ fontSize: F.f28, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{total}</T>
-        </Card>
-        <Card style={{ flex: 1, gap: 2 }}>
-          <T s="label">Worth at your prices</T>
-          <T style={{ fontSize: F.f28, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{money(value)}</T>
-        </Card>
-      </View>
-      {!sizes.length ? (
-        <Empty icon={<BoxIcon color={t.action} size={26} />} title="Nothing in stock yet" body="When you finish a run, its bandanas land here, ready to sell." />
-      ) : (
-        <Section title="Ready to sell" right={<T s="sub">Click a size to fix its count</T>}>
-          <Card pad={false} style={{ overflow: 'hidden' }}>
-            {sizes.map(([k, z], i) => {
-              const n = by[k] || 0;
-              const runs = new Set(shop.stock.filter(s => s.size === k).map(s => s.run)).size;
+      {n === 0 ? <Chip label="Out" tone="warn" /> : n <= 2 ? <Chip label="Low" /> : null}
+      <Text style={{ fontSize: F.f18, fontWeight: '700', minWidth: 28, textAlign: 'right', color: t.text, fontVariant: ['tabular-nums'] }}>{n}</Text>
+      <ChevIcon color={t.text3} size={16} />
+    </Pressable>
+  );
+  const left = (
+    <>
+      <Sect title="Ready to sell" right="click to adjust a count">
+        {sizes.length ? <WList>{sizes.map(([k, z]) => szRow(k, z.name, z.price, by[k] || 0, `${z.price != null ? money(z.price) + ' each' : 'Not priced'}${by[k] ? ` · from ${plural(runsOf(k), 'run')}` : ''}`))}</WList> : <Note style={{ paddingHorizontal: 0 }}>Add your sizes in Settings first.</Note>}
+        {prods.map(([p, vs]) => (
+          <View key={p.id}>
+            <Sublab>{p.name}</Sublab>
+            <WList>{vs.map(v => szRow(v.id, v.name, v.price, by[v.id] || 0, v.price ? money(v.price) + ' each' : 'Not priced'))}</WList>
+          </View>
+        ))}
+      </Sect>
+      {fillable.length ? (
+        <Sect title="Orders you can fill now" right={String(fillable.length)}>
+          <View style={{ gap: 8 }}>
+            {fillable.map(o => {
+              const c = shop.customers.find(x => x.id === o.cust);
+              const pcs = orderCount(o);
+              const leaves = ev && total - pcs < goal ? `Leaves ${total - pcs} for market` : '';
               return (
-                <Row key={k} first={i === 0} onPress={() => setAdj(k)}>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <T style={{ fontWeight: '600' }}>{z.name}</T>
-                    <T s="sub">{z.price != null ? money(z.price) + ' each' : 'Not priced'}{n ? ` · from ${plural(runs, 'run')}` : ''}</T>
+                <View key={o.id} style={[{ gap: 10, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 20, backgroundColor: t.surface }, shadow(t.dark)]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <CustAv c={c} name={o.title || '?'} size={40} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={{ fontSize: F.f15, fontWeight: '700', color: t.text }}>{c ? c.name : o.title || 'Order'}</Text>
+                      <Text style={{ fontSize: F.f13, color: t.text3 }}>{orderLabel(shop, o)}{o.due ? ' · ' + relDue(rel(o.due)).toLowerCase() : ''}</Text>
+                    </View>
                   </View>
-                  {n === 0 ? <Chip label="Out" tone="warn" /> : n <= 2 ? <Chip label="Low" /> : null}
-                  <T style={{ fontSize: F.f18, fontWeight: '700', minWidth: 32, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{n}</T>
-                </Row>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                    {leaves ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><WarnIcon color={t.warn} size={16} /><Text style={{ fontSize: F.f13, fontWeight: '600', color: t.warn }}>{leaves}</Text></View> : <View />}
+                    <Button small title="Fill from stock" onPress={() => { if (fillFromStock(o.id)) showSnack('Set aside from stock. Ready to send', () => unfill(o.id)); }} />
+                  </View>
+                </View>
               );
             })}
-          </Card>
-        </Section>
-      )}
-      {Object.keys(groups).length ? (
-        <Section title="By run" right={<T s="sub">{plural(total, 'bandana')}</T>}>
-          <Card pad={false} style={{ overflow: 'hidden' }}>
-            {Object.entries(groups).map(([rid, list], i) => {
-              const r = shop.runs.find(x => x.id === rid);
-              const f = r && shop.fabrics.find(x => x.id === r.body);
-              const n = list.reduce((a, s) => a + s.n, 0);
-              return (
-                <Row key={rid} first={i === 0} onPress={r ? () => openRun(r.id) : undefined}>
-                  <Swatch color={f ? f.color : t.sunken} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <T style={{ fontWeight: '600' }}>{rid === 'adj' ? 'Added by hand' : r ? (r.name || 'Untitled run').split(' — ')[0] : 'Older run'}</T>
-                    <T s="sub">{list.map(s => `${s.n} ${itemName(shop, s.size)}`).join(', ')}</T>
-                  </View>
-                  <T style={{ fontWeight: '700', fontVariant: ['tabular-nums'] }}>{n}</T>
-                </Row>
-              );
-            })}
-          </Card>
-        </Section>
+          </View>
+          <Note style={{ paddingHorizontal: 0 }}>Sets these bandanas aside for the order so they aren’t sold at a market. No run needed.</Note>
+        </Sect>
       ) : null}
+    </>
+  );
+  const right = (
+    <>
       {aside.length ? (
-        <Section title="Set aside for orders">
-          <Card pad={false} style={{ overflow: 'hidden' }}>
-            {aside.map((o, i) => (
-              <Row key={o.id} first={i === 0}>
-                <View style={{ flex: 1 }}><T style={{ fontWeight: '600' }}>{o.title || shop.customers.find(c => c.id === o.cust)?.name || 'Order'}</T><T s="sub">{orderLabel(shop, o)}</T></View>
-              </Row>
-            ))}
-          </Card>
-          <T s="small">These aren’t counted as ready to sell.</T>
-        </Section>
+        <Sect title="Set aside for orders" right={String(aside.reduce((a, o) => a + asideN(o), 0))}>
+          <View style={{ gap: 8 }}>
+            {aside.map(o => {
+              const c = shop.customers.find(x => x.id === o.cust);
+              const d = rel(o.due);
+              return <OCard key={o.id} onPress={() => go?.('orders', o.id)} av={<CustAv c={c} name={o.title || '?'} size={42} />} title={c ? c.name : o.title || 'Order'} value={String(asideN(o))} sub={`${o.title || o.src || 'Order'} · ${orderLabel(shop, o)}`}
+                chips={<><Chip tone={orderStage(shop, o) === 'ready' ? 'ok' : 'plain'} label={orderStage(shop, o) === 'ready' ? 'Ready to send' : 'Being made'} />{o.due ? <Chip tone={d != null && d < 0 ? 'warn' : 'plain'} label={d != null && d < 0 ? relDue(d) : 'Due ' + dayLabel(o.due)} /> : null}</>} />;
+            })}
+          </View>
+        </Sect>
       ) : null}
-      {rec ? <RecordSaleSheet onClose={() => setRec(false)} /> : null}
+      <Sect title="By run" right={plural(total, 'bandana')}>
+        {Object.keys(groups).length ? (
+          <View style={{ gap: 8 }}>
+            {Object.entries(groups).map(([rid, list]) => {
+              const r = shop.runs.find(x => x.id === rid);
+              const n = list.reduce((a, x) => a + x.n, 0);
+              return <OCard key={rid} onPress={() => (r ? openRun(r.id) : setAdj(list[0].size))} av={r ? <RunThumb r={r} size={42} /> : <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: t.sunken }} />} title={rid === 'adj' ? 'Added by hand' : r ? (r.name || 'Untitled run').split(' — ')[0] : 'Older run'} value={String(n)} sub={list.map(x => `${x.n} ${itemName(shop, x.size)}`).join(', ')} />;
+            })}
+          </View>
+        ) : <Note style={{ paddingHorizontal: 0 }}>Nothing in stock yet. When you finish a run, its bandanas land here.</Note>}
+      </Sect>
+    </>
+  );
+  const wide = w >= 900;
+  return (
+    <ScrollView onLayout={e => setW(e.nativeEvent.layout.width)} contentContainerStyle={{ alignItems: 'center' }}>
+      <View style={{ width: '100%', maxWidth: 1180, paddingHorizontal: 32, paddingTop: 32, paddingBottom: 48, gap: 20 }}>
+        <PageHead title="Finished stock" />
+        <Strip items={[{ v: String(total), l: 'ready to sell' }, { v: money0(value), l: 'at your prices' }, { v: String(aside.reduce((a, o) => a + asideN(o), 0)), l: 'set aside' }]} />
+        {ev ? (
+          <FitCard ok={ready} title={`${ev.title}, ${dayLabel(ev.day)}`} frac={total / Math.max(1, goal)}
+            text={ready ? `Packed: ${total} ready, you wanted ${goal}.` : `${total} of ${goal} ready, ${goal - total} short.${pend.length ? ` ${(pend[0].name || 'A run').split(' — ')[0]} adds ${runNumbers(shop, pend[0]).pieces} when it’s finished${pend[0].due ? ' (' + relDue(rel(pend[0].due)).toLowerCase() + ')' : ''}.` : ''}`}
+            action={<Button small kind={ready ? 'secondary' : 'primary'} title="Market day" onPress={() => go?.('market')} />} />
+        ) : null}
+        {wide ? (
+          <View style={{ flexDirection: 'row', gap: 24, alignItems: 'flex-start' }}>
+            <View style={{ flex: 1, gap: 20 }}>{left}</View>
+            <View style={{ flex: 1, gap: 20 }}>{right}</View>
+          </View>
+        ) : (
+          <View style={{ gap: 20 }}>{left}{right}</View>
+        )}
+      </View>
       {adj ? <AdjustSheet size={adj} onClose={() => setAdj(null)} /> : null}
     </ScrollView>
   );

@@ -207,6 +207,8 @@ export interface Quote {
   cust: string | null;
   title: string;
   status: 'draft' | 'sent' | 'accepted' | 'declined';
+  /** Day they said no */
+  dec?: Day;
   made: Day;
   sent: Day | null;
   acc: Day | null;
@@ -236,7 +238,14 @@ export interface MarketDay {
   pay: 'Card' | 'Cash';
   tally: MarketTap[];
   openedAt: number | null;
-  last?: { name: string; sale: string; n: number; total: number; day: Day } | null;
+  last?: { name: string; sale: string; n: number; total: number; day: Day; fees?: number; costs?: number; items?: Record<string, number> } | null;
+  /** The day of the next market, hours at the stall, miles there and back and what a mile costs you */
+  day?: Day | null;
+  hours?: number;
+  miles?: number;
+  perMile?: number;
+  /** Closed and recorded; shows the summary until you plan the next one */
+  closed?: boolean;
 }
 
 export interface CalEvent {

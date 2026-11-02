@@ -9,6 +9,13 @@ What's in it so far:
 - **Split view** (Ctrl + \\): two sections side by side, a draggable divider, swap, and saved pairs.
 - **Today**: who's timing (pause and stop right there), the next 7 days of booked time, the month's income against your goal, what's on the bench with progress, due dates and list value, what's coming up, the shelf, quotes out and recent activity.
 - **Workflow**: pick a run on the bench, the running timer big (pause, stop, fix the time, don't record), and its steps with how each went against the plan.
+- **Sell screens** (Orders, Quotes, Customers, Payments, Finished stock, Market day), laid out like the prototype: grouped cards beside a detail card with a stats strip and status banners.
+  - **Orders**: to plan, in progress, ready to send and delivered; whether it fits your free hours before the due date (with the first day it would fit), fill from stock, plan it as a run, fabric and notes.
+  - **Quotes**: waiting on them, expired, drafts, accepted, declined; the receipt, what it leaves you, delivery, deal and deposit; extend an expired quote; update a sent quote to your current prices; preview, save as PDF and mark sent.
+  - **Customers**: who owes you, who has something open, everyone else; email, call, text and social buttons, their dogs, contact details, albums and history.
+  - **Payments**: overdue, waiting on payment and paid by month; mark paid, part payments, due dates and a payment reminder email.
+  - **Finished stock**: ready to sell by size, orders you can fill now, what's set aside, stock by run and how ready you are for the next market.
+  - **Market day**: plan it (packing against your goal, date, hours, booth fee and miles), tap sales card or cash, undo any sale, and a summary once it's recorded.
 - **Schedule**: four weeks of free hours with the runs fitted in, earliest due first, due dates and finish dates on the calendar, and markets or days off that take a day's hours out.
 - **Reports**: trends by month, what sells best, your real time a bandana; sales and profit by channel, size, customer and run, before and after bills; a tax summary; and goals.
 - **Photos**: add pictures (copied into `%LOCALAPPDATA%\BandanaPlanner\photos`), link them to runs, fabric and customers, favorites, albums and client albums you can save to a folder (Documents › Bandana Planner › Albums), a viewer, and Recently deleted for 30 days.

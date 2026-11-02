@@ -46,6 +46,31 @@ function freeUntil(sc: { cap: number[]; used: number[] }, d: number) {
   return f;
 }
 
+/** Does an order fit your free hours before its due date? (the prototype's fitOf) */
+export function orderFit(s: Shop, o: Shop['orders'][number], sc?: { cap: number[]; used: number[] }) {
+  const sched = sc || schedule(s);
+  const need = Math.round(Object.entries(o.qty).reduce((a, [k, n]) => a + (n || 0) * (unitMinutes(s, k) || 0), 0));
+  const d = rel(o.due);
+  let cap = 0,
+    busy = 0;
+  if (d != null && d >= 0)
+    for (let i = 0; i <= Math.min(d, sched.cap.length - 1); i++) {
+      cap += sched.cap[i];
+      busy += Math.min(sched.used[i], sched.cap[i]);
+    }
+  const fits = d != null && d >= 0 && busy + need <= cap;
+  let byDay: number | null = null,
+    acc = 0;
+  for (let i = 0; i < sched.cap.length; i++) {
+    acc += Math.max(0, sched.cap[i] - sched.used[i]);
+    if (acc >= need) {
+      byDay = i;
+      break;
+    }
+  }
+  return { need, cap, busy, fits, short: Math.max(0, busy + need - cap), byDay };
+}
+
 export function alertsAll(s: Shop, now = Date.now()): Alert[] {
   const R = s.cfg.remind;
   const L: Alert[] = [];

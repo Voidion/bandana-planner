@@ -9,7 +9,9 @@ import { DefectSheet, FixTimerSheet } from './src/screens/runs/sheets';
 import { SettingsScreen, type SettingsTab } from './src/screens/SettingsScreen';
 import { StockScreen } from './src/screens/StockScreen';
 import { RestockScreen, SuppliersScreen, SuppliesScreen } from './src/screens/ShelfScreens';
-import { CustomersScreen, OrdersScreen, SalesScreen } from './src/screens/SellingScreens';
+import { PaymentsScreen } from './src/screens/PaymentsScreen';
+import { CustomersScreen } from './src/screens/CustomersScreen';
+import { OrdersScreen } from './src/screens/OrdersScreen';
 import { QuotesScreen } from './src/screens/QuotesScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
 import { PhotosScreen } from './src/screens/PhotosScreen';
@@ -46,6 +48,7 @@ export default function App() {
   const [ordSel, setOrdSel] = useState<string | null>(null);
   const [custSel, setCustSel] = useState<string | null>(null);
   const [quoteSel, setQuoteSel] = useState<string | null>(null);
+  const [saleSel, setSaleSel] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<null | 'search' | 'new' | 'inbox' | 'defect' | 'layout'>(null);
   const [peek, setPeek] = useState(false);
   const [saleKey, setSaleKey] = useState(0);
@@ -65,6 +68,7 @@ export default function App() {
     if (r === 'customers' && id) setCustSel(id);
     if (r === 'supplies' && id) setSupSel(id);
     if (r === 'sales' && id === 'record') setSaleKey(k => k + 1);
+    else if (r === 'sales' && id) setSaleSel(id);
     if (r === 'quotes' && id) setQuoteSel(id);
     if (r === 'settings' && id) setSetTab(id as SettingsTab);
     show(r);
@@ -138,15 +142,15 @@ export default function App() {
     : r === 'activity' ? <ActivityScreen />
     : r === 'fabric' ? <FabricScreen sel={fabSel} setSel={setFabSel} onPlanWith={id => openRun(planRun({ body: id, ties: id }))} openRun={openRun} />
     : r === 'runs' ? <RunsScreen sel={runSel} setSel={setRunSel} goSetup={() => go('settings', 'sizes')} openWorkflow={id => go('workflow', id)} />
-    : r === 'orders' ? <OrdersScreen sel={ordSel} setSel={setOrdSel} openRun={openRun} />
-    : r === 'quotes' ? <QuotesScreen sel={quoteSel} setSel={setQuoteSel} openOrder={openOrder} />
-    : r === 'market' ? <MarketScreen />
-    : r === 'sales' ? <SalesScreen key={saleKey} autoRecord={saleKey > 0} />
-    : r === 'customers' ? <CustomersScreen sel={custSel} setSel={setCustSel} openOrder={openOrder} />
+    : r === 'orders' ? <OrdersScreen sel={ordSel} setSel={setOrdSel} openRun={openRun} openCustomer={id => go('customers', id)} />
+    : r === 'quotes' ? <QuotesScreen sel={quoteSel} setSel={setQuoteSel} openOrder={openOrder} openCustomer={id => go('customers', id)} />
+    : r === 'market' ? <MarketScreen go={go} />
+    : r === 'sales' ? <PaymentsScreen key={saleKey} sel={saleSel} setSel={setSaleSel} autoRecord={saleKey > 0} go={go} />
+    : r === 'customers' ? <CustomersScreen sel={custSel} setSel={setCustSel} openOrder={openOrder} openQuote={id => go('quotes', id)} go={go} />
     : r === 'supplies' ? <SuppliesScreen sel={supSel} setSel={setSupSel} />
     : r === 'suppliers' ? <SuppliersScreen openFabric={openFabric} openSupply={openSupply} />
     : r === 'restock' ? <RestockScreen openFabric={openFabric} openSupply={openSupply} />
-    : r === 'stock' ? <StockScreen openRun={openRun} />
+    : r === 'stock' ? <StockScreen openRun={openRun} go={go} />
     : <SettingsScreen tab={setTab} setTab={setSetTab} openRun={openRun} />;
 
   const navProps = { route: split.on ? (split.focus === 'R' ? split.right : route) : route, go: (r: Route) => show(r), onSearch: () => setOverlay('search'), onNew: () => setOverlay('new'), onInbox: () => setOverlay('inbox'), onSplit: toggleSplit, split: split.on, openTimer: (id: string) => go('workflow', id) };

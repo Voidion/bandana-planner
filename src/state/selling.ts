@@ -173,6 +173,7 @@ export function undoSale(id: string) {
   });
 }
 
+export const editSale = (id: string, patch: Partial<Sale>) => update(s => ({ ...s, sales: s.sales.map(e => (e.id === id ? { ...e, ...patch } : e)) }));
 export function recordPayment(id: string, amt: number, day = todayDay()) {
   update(s => ({
     ...s,
@@ -328,9 +329,19 @@ export const setMarket = (p: Partial<Shop['market']>) => update(s => ({ ...s, ma
 export function tap(k: string, price: number) {
   update(s => ({ ...s, market: { ...s.market, tally: [...s.market.tally, { k, price, pay: s.market.pay, t: Date.now() }] } }));
 }
-export function untap() {
-  update(s => ({ ...s, market: { ...s.market, tally: s.market.tally.slice(0, -1) } }));
+export function untap(i?: number) {
+  update(s => ({ ...s, market: { ...s.market, tally: i == null ? s.market.tally.slice(0, -1) : s.market.tally.filter((_, j) => j !== i) } }));
 }
+/** Booth fee plus the drive */
+export const marketCosts = (m: Shop['market']) => round2((m.booth || 0) + (m.miles || 0) * (m.perMile ?? 0.67));
+/** Card fees on what's been tapped so far */
+export function marketFees(s: Shop) {
+  const f = s.cfg.fees;
+  const card = s.market.tally.filter(x => x.pay === 'Card');
+  return f.on ? round2(card.reduce((a, x) => a + x.price, 0) * (f.rate / 100) + card.length * f.flat) : 0;
+}
+/** Start planning the next market (clears the last summary) */
+export const planNextMarket = () => update(s => ({ ...s, market: { ...s.market, closed: false, day: null, name: '' } }));
 /** Left to sell: free stock less what's been tapped today */
 export function marketLeft(s: Shop) {
   const free = freeStock(s);
@@ -348,12 +359,11 @@ export function closeMarket(): string | null {
   const items: Record<string, number> = {};
   m.tally.forEach(x => (items[x.k] = (items[x.k] || 0) + 1));
   const total = round2(m.tally.reduce((a, x) => a + x.price, 0));
-  const card = m.tally.filter(x => x.pay === 'Card');
-  const f = s.cfg.fees;
-  const fees = f.on ? round2(card.reduce((a, x) => a + x.price, 0) * (f.rate / 100) + card.length * f.flat) : 0;
-  const id = recordSale({ ch: 'Market', items, amount: total, fees, costs: m.booth || 0, ref: m.name, what: m.name || 'Market day' });
+  const fees = marketFees(s);
+  const costs = marketCosts(m);
+  const id = recordSale({ ch: 'Market', items, amount: total, fees, costs, ref: m.name, what: m.name || 'Market day' });
   if (!id) return null;
-  update(x => ({ ...x, market: { ...x.market, open: false, tally: [], openedAt: null, last: { name: m.name, sale: id, n: m.tally.length, total, day: todayDay() } } }));
+  update(x => ({ ...x, market: { ...x.market, open: false, closed: true, tally: [], openedAt: null, last: { name: m.name, sale: id, n: m.tally.length, total, day: todayDay(), fees, costs, items } } }));
   return id;
 }
 

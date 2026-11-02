@@ -227,3 +227,13 @@ export function MoreIcon({ size = 22, color }: P) {
     </Svg>
   );
 }
+export const BagIcon = I(<><Path d="M5.5 8h13l-1 11.5a1.5 1.5 0 0 1-1.5 1.4H8a1.5 1.5 0 0 1-1.5-1.4z" /><Path d="M9 10V7a3 3 0 0 1 6 0v3" /></>);
+export const MailIcon = I(<><Rect x="3.5" y="5.5" width="17" height="13" rx="2.5" /><Path d="M4 7.5l8 5.5 8-5.5" /></>);
+export const PhoneIcon = I(<Path d="M6.6 3.5h2.6l1.4 4-2 1.3a11 11 0 0 0 6.6 6.6l1.3-2 4 1.4v2.6a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z" />);
+export const AtIcon = I(<><Circle cx="12" cy="12" r="3.6" /><Path d="M15.6 12v1.4a2.4 2.4 0 0 0 4.8 0V12a8.4 8.4 0 1 0-3.3 6.7" /></>);
+export const UserIcon = I(<><Circle cx="12" cy="8.5" r="3.8" /><Path d="M4.5 20c.9-3.6 3.9-5.8 7.5-5.8s6.6 2.2 7.5 5.8" /></>);
+export const ChatIcon = I(<Path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />);
+export const LockIcon = I(<><Rect x="5" y="10.5" width="14" height="10" rx="2.5" /><Path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" /></>);
+export const SwapIcon = I(<Path d="M7 7h12l-3-3M17 17H5l3 3" />);
+export const DogIcon = I(<><Path d="M12 12.2c-2.6 0-4.6 2.5-4.6 4.6 0 1.6 1.2 2.4 2.5 2.4.9 0 1.4-.4 2.1-.4s1.2.4 2.1.4c1.3 0 2.5-.8 2.5-2.4 0-2.1-2-4.6-4.6-4.6z" /><Circle cx="5.8" cy="10.6" r="1.9" /><Circle cx="18.2" cy="10.6" r="1.9" /><Circle cx="9.2" cy="6" r="1.9" /><Circle cx="14.8" cy="6" r="1.9" /></>);
+export const ReceiptIcon = I(<><Path d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3z" /><Path d="M9 8.5h6M9 12h6M9 15.5h3.5" /></>);

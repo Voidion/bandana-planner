@@ -85,7 +85,7 @@ export function emptyShop(): Shop {
     orders: [],
     quotes: [],
     bundles: [],
-    market: { open: false, name: '', booth: 0, goal: 30, pay: 'Card', tally: [], openedAt: null, last: null },
+    market: { open: false, name: '', booth: 0, goal: 30, pay: 'Card', tally: [], openedAt: null, last: null, day: null, hours: 6, miles: 0, perMile: 0.67, closed: false },
     usage: [],
     cal: [],
     photos: [],
