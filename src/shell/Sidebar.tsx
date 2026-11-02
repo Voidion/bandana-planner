@@ -14,6 +14,13 @@ import { AutoThemeIcon, BatchesIcon, BellIcon, BoxIcon, CartIcon, CoinIcon, DocI
 import { openMenuAt, showSnack } from '../ui/kit';
 import { F, useTheme } from '../ui/theme';
 import { useNow } from '../ui/useNow';
+import { useTourTarget } from '../ui/tour';
+
+/** A wrapper the guided tour can point at */
+function Tgt({ id, children, style }: { id: string; children: React.ReactNode; style?: any }) {
+  const ref = useTourTarget(id);
+  return <View ref={ref} collapsable={false} style={style}>{children}</View>;
+}
 
 export type Route = 'today' | 'runs' | 'workflow' | 'schedule' | 'orders' | 'quotes' | 'customers' | 'sales' | 'stock' | 'market' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'photos' | 'trends' | 'reports' | 'maintenance' | 'activity' | 'settings';
 type Ic = (p: { color: string; size?: number }) => React.ReactElement;
@@ -75,32 +82,36 @@ export function Sidebar(p: NavProps & { peek?: boolean; onClosePeek?: () => void
           <BatchesIcon color={t.onAction} size={18} />
         </View>
         <Text numberOfLines={1} style={{ flex: 1, fontWeight: '700', fontSize: F.f16, color: t.text }}>{shop.shopName || 'Your shop'}</Text>
-        <Bell onPress={p.onInbox} />
-        <IconBtn label={p.split ? 'Close split view' : 'Split view'} on={p.split} onPress={p.onSplit}>{c => <SplitIcon color={c} size={24} />}</IconBtn>
+        <Tgt id="bell"><Bell onPress={p.onInbox} /></Tgt>
+        <Tgt id="split"><IconBtn label={p.split ? 'Close split view' : 'Split view'} on={p.split} onPress={p.onSplit}>{c => <SplitIcon color={c} size={24} />}</IconBtn></Tgt>
       </View>
+      <Tgt id="search">
       <Pressable accessibilityRole="button" accessibilityLabel="Search (Ctrl+K)" onPress={p.onSearch}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingLeft: 12, paddingRight: 10, marginBottom: 10, borderRadius: 14, backgroundColor: t.bg, borderWidth: 1, borderColor: t.line }}>
         <SearchIcon color={t.text3} size={20} />
         <Text style={{ flex: 1, fontSize: F.f15, color: t.text2 }}>Search</Text>
         <Text style={{ fontSize: F.f13, fontWeight: '600', color: t.text3, backgroundColor: t.surface, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: t.line2 }}>Ctrl K</Text>
       </Pressable>
+      </Tgt>
       <ScrollView style={{ flex: 1, marginHorizontal: -14 }} contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 28, gap: 4 }}>
         {NAV.map(([g, items]) => (
           <View key={g || 'top'} style={{ gap: 4 }}>
             {g ? <Text style={{ paddingTop: 18, paddingHorizontal: 12, paddingBottom: 6, fontSize: F.f13, fontWeight: '600', color: t.text3, textTransform: 'uppercase', letterSpacing: 0.6 }}>{g}</Text> : null}
             {items.map(([r, label, Icon]) => (
-              <NavRow key={r} on={(PARENT[p.route] || p.route) === r} label={label} icon={c => <Icon color={c} size={22} />} badge={b[r] || null} onPress={() => p.go(r)} />
+              <Tgt key={r} id={'nav-' + r}><NavRow on={(PARENT[p.route] || p.route) === r} label={label} icon={c => <Icon color={c} size={22} />} badge={b[r] || null} onPress={() => p.go(r)} /></Tgt>
             ))}
           </View>
         ))}
       </ScrollView>
       {showTimer ? <NavTimer open={p.openTimer} /> : null}
+      <Tgt id="new">
       <Pressable accessibilityRole="button" accessibilityLabel="New (Ctrl+N)" onPress={p.onNew}
         style={{ minHeight: 48, marginTop: showTimer ? 10 : 12, marginBottom: 10, borderRadius: 16, backgroundColor: t.action, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
         <PlusIcon color={t.onAction} size={20} />
         <Text style={{ color: t.onAction, fontWeight: '600', fontSize: F.f15 }}>New</Text>
       </Pressable>
-      <MeCard settingsOn={p.route === 'settings'} go={p.go} />
+      </Tgt>
+      <Tgt id="me"><MeCard settingsOn={p.route === 'settings'} go={p.go} /></Tgt>
       <Text style={{ fontSize: F.f12, color: save === 'error' ? t.danger : t.text3, paddingHorizontal: 10, paddingTop: 6 }}>
         {save === 'error' ? 'Couldn’t save. Retrying with your next change.' : save === 'saving' ? 'Saving…' : 'Saved on this computer'}
       </Text>
@@ -257,16 +268,18 @@ export function Rail(p: NavProps & { onMore: () => void }) {
   const dot = (bd: Badge) => (bd ? <View pointerEvents="none" style={{ position: 'absolute', top: 3, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: bd.tone === 'live' ? t.success : bd.tone === 'warn' ? t.barA : t.action, borderWidth: 2, borderColor: t.surface }} /> : null);
   return (
     <View style={{ width: 80, backgroundColor: t.surface, borderRightWidth: 1, borderRightColor: t.line, paddingTop: 16, paddingBottom: 14, alignItems: 'center' }}>
-      <Bell onPress={p.onInbox} />
-      <IconBtn label="Search (Ctrl+K)" onPress={p.onSearch}>{c => <SearchIcon color={c} size={24} />}</IconBtn>
-      <IconBtn label={p.split ? 'Close split view' : 'Split view'} on={p.split} onPress={p.onSplit}>{c => <SplitIcon color={c} size={22} />}</IconBtn>
+      <Tgt id="bell"><Bell onPress={p.onInbox} /></Tgt>
+      <Tgt id="search"><IconBtn label="Search (Ctrl+K)" onPress={p.onSearch}>{c => <SearchIcon color={c} size={24} />}</IconBtn></Tgt>
+      <Tgt id="split"><IconBtn label={p.split ? 'Close split view' : 'Split view'} on={p.split} onPress={p.onSplit}>{c => <SplitIcon color={c} size={22} />}</IconBtn></Tgt>
       <View style={{ width: 40, height: 1, backgroundColor: t.line, marginVertical: 5 }} />
       <ScrollView style={{ flex: 1, alignSelf: 'stretch', overflow: 'hidden' }} contentContainerStyle={{ alignItems: 'center', gap: 4 }}>
         {keep.map(([r, label, Icon]) => (
-          <RailBtn key={r} on={(PARENT[p.route] || p.route) === r} label={label} onPress={() => p.go(r)}>
+          <Tgt key={r} id={'nav-' + r}>
+          <RailBtn on={(PARENT[p.route] || p.route) === r} label={label} onPress={() => p.go(r)}>
             {c => <Icon color={c} size={24} />}
             {dot(b[r] || null)}
           </RailBtn>
+          </Tgt>
         ))}
         <RailBtn on={restOn} label={`More: ${rest.map(n => n[1]).join(', ')}${restDots.length ? `, ${restDots.length} need${restDots.length === 1 ? 's' : ''} a look` : ''}`} onPress={p.onMore}>
           {c => <MoreIcon color={c} size={22} />}

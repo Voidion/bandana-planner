@@ -31,6 +31,7 @@ export const SHORTCUTS: [string, string][] = [
   ['Ctrl + 9', 'Fabric'],
   ['Ctrl + \\', 'Split view'],
   ['Ctrl + ,', 'Settings'],
+  ['F1', 'Help & tour'],
   ['Esc', 'Close'],
 ];
 const NAV: Record<string, string> = { '1': 'today', '2': 'runs', '3': 'workflow', '4': 'schedule', '5': 'orders', '6': 'quotes', '7': 'customers', '8': 'sales', '9': 'fabric', ',': 'settings' };
@@ -40,6 +41,7 @@ export function handleKey(e: any, a: { search: () => void; newMenu: () => void; 
   const k = String(e?.nativeEvent?.key || '').toLowerCase();
   const ctrl = !!(e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey);
   if (k === 'escape') return a.close();
+  if (k === 'f1') return a.go('settings', 'help'), true;
   if (!ctrl) return false;
   if (k === 'k' || k === 'f') return a.search(), true;
   if (k === 'n') return a.newMenu(), true;

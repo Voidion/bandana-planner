@@ -142,6 +142,8 @@ export function migrate(raw: unknown): Shop {
   const out: Shop = {
     ...base,
     ...s,
+    setupDone: typeof s.setupDone === 'boolean' ? s.setupDone : arr(s.runs).length > 0 || arr(s.fabrics).length > 0 || arr(s.sales).length > 0,
+    tourDone: s.tourDone === true,
     version: SCHEMA_VERSION,
     laborRate: typeof s.laborRate === 'number' ? s.laborRate : base.laborRate,
     sizes: Object.fromEntries(Object.entries(s.sizes || base.sizes).map(([k, z]: [string, any]) => [k, { ...size(k), ...z }])),

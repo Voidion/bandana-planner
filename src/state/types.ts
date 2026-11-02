@@ -583,6 +583,14 @@ export interface Shop {
   goals: { income: number; hours: number };
   /** Your logo at the top of quotes (a 256px square JPEG; jpg is its base64 for the PDF) */
   logo?: { src: string; jpg: string } | null;
+  /** First-open setup finished or skipped */
+  setupDone?: boolean;
+  /** The guided tour taken or skipped */
+  tourDone?: boolean;
+  /** Example data loaded to practise on (what it added, so Remove takes exactly that out) */
+  example?: import('./example').ExampleInfo | null;
+  /** The Getting started checklist on Today was hidden */
+  startHidden?: boolean;
   usage: UsageLine[];
   products: Product[];
 }

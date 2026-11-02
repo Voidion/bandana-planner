@@ -1,0 +1,21 @@
+import { hasExample, loadExample, removeExample } from '../src/state/example';
+import { emptyShop } from '../src/state/defaults';
+import { addFabric, getShop, update } from '../src/state/store';
+test('example data loads and removes cleanly, keeping your own things', () => {
+  update(() => emptyShop());
+  const mine = addFabric({ name: 'My own fabric', yards: 2, cost: 7 });
+  loadExample();
+  const s = getShop();
+  expect(hasExample(s)).toBe(true);
+  expect(s.fabrics.length).toBe(5);
+  expect(s.runs.length).toBe(3);
+  expect(s.sales.length).toBe(3);
+  expect(s.sizes.M.cw).toBe(11);
+  removeExample();
+  const r = getShop();
+  expect(hasExample(r)).toBe(false);
+  expect(r.fabrics.map(f => f.id)).toEqual([mine]);
+  expect(r.runs.length + r.sales.length + r.customers.length + r.orders.length + r.quotes.length + r.cal.length + r.stock.length).toBe(0);
+  expect(r.sizes.M.cw == null).toBe(true);
+  expect(r.activity.some(a => /Example/.test(a.text))).toBe(false);
+});

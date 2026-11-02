@@ -8,11 +8,14 @@ import { setGoals } from '../state/planning';
 import { pickLogo } from '../state/storage';
 import { addTemplate, change, closeOutTimer, deleteTemplate, editTemplate, restoreTemplate, restoreTimer, setCfg, useShop } from '../state/store';
 import type { Template } from '../state/types';
-import { BellIcon, CalIcon, ChevIcon, ClockIcon, CoinIcon, DownIcon, FabricIcon, GearIcon, PlusIcon, PriceIcon, RulerIcon, ScissorsIcon, StoreIcon, TagIcon, TimeIcon, TrashIcon, TrendIcon, TruckIcon, UpIcon, WalletIcon, WorkflowIcon, BoxIcon, FolderIcon, ReceiptIcon } from '../ui/icons';
+import { BellIcon, CalIcon, ChatIcon as HelpIcon, CheckIcon, ChevIcon, ClockIcon, CoinIcon, DownIcon, FabricIcon, GearIcon, PlusIcon, PriceIcon, RulerIcon, ScissorsIcon, StoreIcon, TagIcon, TimeIcon, TrashIcon, TrendIcon, TruckIcon, UpIcon, WalletIcon, WorkflowIcon, BoxIcon, FolderIcon, ReceiptIcon } from '../ui/icons';
 import { Button, Card, Chip, Field, IconButton, NumField, Row, Section, Segmented, showSnack, T } from '../ui/kit';
 import { Note, PageHead } from '../ui/proto';
 import { F, R, shadow, useTheme } from '../ui/theme';
 import { useNow } from '../ui/useNow';
+import { startSetup, startTour } from '../ui/tour';
+import { startSteps } from '../ui/GettingStarted';
+import { loadExample, removeExample } from '../state/example';
 import { SetupScreen } from './SetupScreen';
 import { CuttingSettings } from './CuttingSettings';
 import { ShopSettings } from './AppWide';
@@ -23,10 +26,10 @@ export type SettingsTab =
   | 'shop' | 'goals' | 'hours' | 'quote'
   | 'prices' | 'pricing' | 'fees' | 'shipping' | 'bundles' | 'bills'
   | 'sizes' | 'cutting' | 'cutfiles' | 'fabric' | 'products' | 'templates'
-  | 'reminders' | 'timers' | 'shortcuts' | 'data';
+  | 'help' | 'reminders' | 'timers' | 'shortcuts' | 'data';
 type Ico = (p: { color: string; size: number }) => React.ReactElement;
 
-export function SettingsScreen({ tab, setTab, openRun }: { tab: SettingsTab; setTab: (t: SettingsTab) => void; openRun: (id: string) => void }) {
+export function SettingsScreen({ tab, setTab, openRun, go }: { tab: SettingsTab; setTab: (t: SettingsTab) => void; openRun: (id: string) => void; go: (route: string, id?: string) => void }) {
   const shop = useShop();
   const t = useTheme();
   const [w, setW] = useState(1200);
@@ -42,7 +45,7 @@ export function SettingsScreen({ tab, setTab, openRun }: { tab: SettingsTab; set
     ['Quotes', [['quote', 'What clients see', PriceIcon, shop.logo ? 'Logo' + (contacts ? ` · ${contacts} contacts` : '') : `${contacts} contacts`]]],
     ['Pricing', [['prices', 'Profit target', TagIcon, `${c.margin}%`], ['fees', 'Card fees', WalletIcon, c.fees.on ? `${c.fees.rate}% + ${money(c.fees.flat)}` : 'Off'], ['shipping', 'Shipping', TruckIcon, c.ship.threshold ? `Free over ${money0(c.ship.threshold)}` : money(c.ship.charge)], ['bundles', 'Bundles & deals', ReceiptIcon, String(shop.bundles.length)], ['bills', 'Monthly bills', CoinIcon, `${money0(monthly)} a month`]], 'Time isn’t counted as a cost.'],
     ['Making', [['sizes', 'Sizes & straps', RulerIcon, `${Object.keys(shop.sizes).length} sizes`], ['cutting', 'Cutting & mats', ScissorsIcon, `${inch(c.cut.width)} on ${vm.name.replace(' mat', '')}`], ['cutfiles', 'Cut files', FolderIcon, `${Object.values(shop.sizes).filter(z => z.file).length + shop.straps.filter(x => x.file).length} files`], ['fabric', 'New fabric', FabricIcon, `${fmtN(c.newBolt.yards)} yd · low at ${fmtN(c.newBolt.low)}`], ['products', 'Products', BoxIcon, String(shop.products.length)], ['templates', 'Workflow templates', WorkflowIcon, String(shop.templates.length)]]],
-    ['App', [['reminders', 'Reminders', BellIcon, c.remind.on ? 'Notifications on' : 'In the bell'], ['timers', 'Timers', TimeIcon, `Check after ${c.staleMins / 60}h`], ['shortcuts', 'Keyboard shortcuts', GearIcon, ''], ['data', 'Your data', CalIcon, 'On this computer']]],
+    ['App', [['help', 'Help & tour', HelpIcon, shop.example ? 'Example data on' : ''], ['reminders', 'Reminders', BellIcon, c.remind.on ? 'Notifications on' : 'In the bell'], ['timers', 'Timers', TimeIcon, `Check after ${c.staleMins / 60}h`], ['shortcuts', 'Keyboard shortcuts', GearIcon, ''], ['data', 'Your data', CalIcon, 'On this computer']]],
   ];
   const all = GROUPS.flatMap(g => g[1]);
   const curRow = all.find(r => r[0] === cur) || all[0];
@@ -92,6 +95,7 @@ export function SettingsScreen({ tab, setTab, openRun }: { tab: SettingsTab; set
     : cur === 'products' ? <ProductsSettings />
     : cur === 'templates' ? <Templates />
     : cur === 'timers' ? <Timers openRun={openRun} />
+    : cur === 'help' ? <HelpPage go={go} />
     : <ShopSettings part={cur as 'reminders' | 'shortcuts' | 'data'} />;
   const detail = (
     <View style={[{ backgroundColor: t.surface, borderRadius: 20, paddingHorizontal: 28, paddingTop: 24, paddingBottom: 28, gap: 18 }, shadow(t.dark)]}>
@@ -127,6 +131,74 @@ export function SettingsScreen({ tab, setTab, openRun }: { tab: SettingsTab; set
         )}
       </View>
     </ScrollView>
+  );
+}
+
+/* ---------- help ---------- */
+const HOW: [string, string, string][] = [
+  ['Plan a run', 'A run is one batch. In Runs, press New run, pick the sizes and how many, and the fabric. The app lays every piece out on Cricut Venture mats, shows the yards you need against what’s on the shelf, and the materials, time and profit. Export for Design Space saves one file per mat.', 'runs'],
+  ['Cut it', 'Cut the mats on the Cricut, then open the run and press Record the cut. Put in what you really used and it comes off the shelf (Undo puts it back).', 'runs'],
+  ['Make it', 'Work down the run’s steps: tick each one, and start the timer on what you’re doing in Workflow. Timed steps teach the app your real pace, so due dates and prices get closer to the truth. Log any bandana that comes out wrong as a defect.', 'workflow'],
+  ['Finish it', 'When the last step is done, Finish run. The bandanas go into Finished stock and you get a review: each step against its plan, hours, fabric and profit.', 'stock'],
+  ['Sell it', 'Record a sale from stock in Payments, tap sales on Market day, or turn a quote into an order. Orders can be filled from stock or planned as a run. Payments tracks who still owes you.', 'sales'],
+  ['Plan your time', 'Schedule fits every run into the free hours you set, earliest due first, and tells you if something will be late. Markets and days off take that day out.', 'schedule'],
+  ['Keep the shelf stocked', 'Fabric shows yards left and when each will run out at your pace. Reminders tell you when something’s low; Restock lists what to order.', 'fabric'],
+  ['See how it’s going', 'Trends shows your pace and this month against your goals. Reports has sales and profit by month, channel, customer and size, and a tax summary.', 'trends'],
+];
+function HelpPage({ go }: { go: (route: string, id?: string) => void }) {
+  const shop = useShop();
+  const t = useTheme();
+  const steps = startSteps(shop);
+  const done = steps.filter(x => x.done).length;
+  return (
+    <View style={{ gap: 22 }}>
+      <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+        <Button title="Take the tour" onPress={startTour} />
+        <Button kind="secondary" title="Run setup again" onPress={startSetup} />
+        {shop.startHidden ? <Button kind="secondary" title="Show Getting started on Today" onPress={() => change(s => ({ ...s, startHidden: false }))} /> : null}
+      </View>
+      <View style={{ gap: 8 }}>
+        <T s="h2">Example data</T>
+        <View style={{ backgroundColor: t.bg, borderRadius: 16, padding: 16, gap: 10 }}>
+          <Text style={{ fontSize: F.f15, color: t.text2, lineHeight: 22 }}>{shop.example ? 'Example fabrics, runs, customers, an order, a quote and sales are loaded to practise on. Removing them takes out only what the example added; anything you made stays.' : 'Load a few example fabrics, runs at different stages, customers, an order, a quote and some sales to try things on. Remove them in one go when you’re ready.'}</Text>
+          {shop.example
+            ? <Button small kind="secondary" title="Remove example data" style={{ alignSelf: 'flex-start' }} onPress={() => { removeExample(); showSnack('Example data removed'); }} />
+            : <Button small kind="secondary" title="Load example data" style={{ alignSelf: 'flex-start' }} onPress={() => { loadExample(); showSnack('Example data loaded. Remove it here or on Today'); }} />}
+        </View>
+      </View>
+      <View style={{ gap: 8 }}>
+        <T s="h2">Getting started · {done} of {steps.length}</T>
+        <View style={{ backgroundColor: t.bg, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6 }}>
+          {steps.map((x, i) => (
+            <Pressable key={x.id} accessibilityRole="button" onPress={() => go(x.route, x.arg)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: t.line }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: x.done ? t.success : 'transparent', borderWidth: x.done ? 0 : 2, borderColor: t.line2 }}>{x.done ? <CheckIcon color="#fff" size={14} /> : null}</View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: F.f15, fontWeight: '600', color: t.text }}>{x.title}</Text>
+                <Text style={{ fontSize: F.f14, color: t.text3 }}>{x.how}</Text>
+              </View>
+              <Text style={{ fontSize: F.f14, fontWeight: '600', color: t.action }}>Show me</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      <View style={{ gap: 8 }}>
+        <T s="h2">How the work flows</T>
+        {HOW.map(([title, body, route], i) => (
+          <View key={title} style={{ flexDirection: 'row', gap: 14, backgroundColor: t.bg, borderRadius: 16, padding: 16 }}>
+            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: t.tint, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: F.f14, fontWeight: '700', color: t.onTint }}>{i + 1}</Text></View>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontSize: F.f16, fontWeight: '700', color: t.text }}>{title}</Text>
+              <Text style={{ fontSize: F.f15, lineHeight: 22, color: t.text2 }}>{body}</Text>
+              <Pressable accessibilityRole="button" onPress={() => go(route)} style={{ alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' }}><Text style={{ fontSize: F.f14, fontWeight: '600', color: t.action }}>Open {route === 'sales' ? 'Payments' : route === 'stock' ? 'Finished stock' : route[0].toUpperCase() + route.slice(1)}</Text></Pressable>
+            </View>
+          </View>
+        ))}
+      </View>
+      <View style={{ gap: 6 }}>
+        <T s="h2">Good to know</T>
+        <Note style={{ paddingHorizontal: 0 }}>Right-click almost anything (a run, fabric, order, customer, sale or photo) for quick actions. Most changes have Undo in the message at the bottom of the window. Press F1 to come back here, Ctrl + K to search and Ctrl + N to start something new. Everything is saved on this computer as you go.</Note>
+      </View>
+    </View>
   );
 }
 
@@ -305,7 +377,7 @@ function TemplateEditor({ tpl, onDeleted }: { tpl: Template; onDeleted: () => vo
 
 /* ---------- free hours ---------- */
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-function Hours() {
+export function Hours() {
   const shop = useShop();
   const t = useTheme();
   const h = shop.cfg.hours;

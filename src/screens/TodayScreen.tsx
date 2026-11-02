@@ -1,5 +1,6 @@
 /* Today, laid out like the prototype's desktop dashboard: who's timing, the next 7 days, this month, what's on the bench,
    what's coming up, the shelf, quotes out and recent activity. */
+import { ExampleBanner, GettingStarted } from '../ui/GettingStarted';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as E from '../engine/engine';
@@ -63,6 +64,8 @@ export function TodayScreen({ go, onDefect, onInbox, onPlan }: { go: Go; onDefec
           <Button small kind="secondary" title="Log a defect" icon={c => <WarnIcon color={c} size={16} />} onPress={onDefect} />
         </View>
       </View>
+      <ExampleBanner />
+      <GettingStarted go={go} />
 
       {/* row 1: activity · next 7 days | this month */}
       <View style={{ flexDirection: wide ? 'row' : 'column', gap }}>

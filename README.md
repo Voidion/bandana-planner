@@ -4,6 +4,8 @@ The Windows app for fabric inventory and cut plans, built with React Native for 
 
 What's in it so far:
 
+- **Getting started**: the first time it opens, a short setup (shop name, sizes and prices, the Cricut mat and bolt, free hours, a first fabric) with the option to load example data to practise on, then a one-minute guided tour that rings each part of the window. Today shows a Getting started checklist (sizes, a fabric, plan a run, record the cut, time a step, finish a run, record a sale) that ticks itself off as each is done, with Show me. **Settings › Help & tour** (or F1) has the tour, setup again, example data on and off, and a plain guide to how the work flows. Removing example data takes out only what it added.
+
 - **Layout**: the prototype's desktop view. A sidebar grouped into Sell and Shop, with badges (runs late, orders to plan, payments late, fabric low, maintenance due), the dark timer card, New, and your card (light/dark, settings). Today, Runs and Schedule use the icon rail to give the content room; More slides the full sidebar in.
 - **Reminders**: the bell holds everything that needs you (late or due runs, orders to plan or that won't fit, low fabric and supplies, quotes ending, market prep, maintenance, overdue payments, a timer left running). Dismiss one, or snooze it until later today, tomorrow or next week. The same list goes to Windows notifications.
 - **Split view** (Ctrl + \\): two sections side by side, a draggable divider, swap, and saved pairs.

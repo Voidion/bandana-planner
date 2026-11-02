@@ -23,6 +23,8 @@ import { ReportsScreen } from './src/screens/NumbersScreens';
 import { ActivityScreen } from './src/screens/ActivityScreen';
 import { ScheduleScreen } from './src/screens/ScheduleScreen';
 import { MaintenanceScreen } from './src/screens/MaintenanceScreen';
+import { SetupWizard } from './src/screens/SetupWizard';
+import { TourOverlay, useHelpRequest } from './src/ui/tour';
 import { pruneAlerts } from './src/state/alerts';
 import { purgeOld } from './src/state/photos';
 import { sendReminders } from './src/state/reminders';
@@ -56,6 +58,24 @@ export default function App() {
   const [overlay, setOverlay] = useState<null | 'search' | 'new' | 'inbox' | 'defect' | 'layout'>(null);
   const [peek, setPeek] = useState(false);
   const [saleKey, setSaleKey] = useState(0);
+  const [tour, setTour] = useState<number | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const live = useShop();
+  const [helpReq, clearHelp] = useHelpRequest();
+  useEffect(() => {
+    if (helpReq === 'tour') {
+      setSplit(s => ({ ...s, on: false }));
+      setPeek(false);
+      setOverlay(null);
+      setTour(0);
+    } else if (helpReq === 'setup') setSetupOpen(true);
+    if (helpReq) clearHelp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [helpReq]);
+  const endTour = () => {
+    setTour(null);
+    update(s => ({ ...s, tourDone: true }));
+  };
 
   /** Opens a section (and an item in it) in the main area, or in the focused pane in Split view */
   const show = (r: Route) => {
@@ -123,7 +143,7 @@ export default function App() {
       newMenu: () => setOverlay('new'),
       go,
       split: toggleSplit,
-      close: () => (menuOpen() ? (closeMenu(), true) : overlay ? (setOverlay(null), true) : peek ? (setPeek(false), true) : false),
+      close: () => (tour != null ? (endTour(), true) : menuOpen() ? (closeMenu(), true) : overlay ? (setOverlay(null), true) : peek ? (setPeek(false), true) : false),
     });
     if (used && e?.preventDefault) e.preventDefault();
   };
@@ -155,10 +175,10 @@ export default function App() {
     : r === 'suppliers' ? <SuppliersScreen openFabric={openFabric} openSupply={openSupply} />
     : r === 'restock' ? <RestockScreen openFabric={openFabric} openSupply={openSupply} />
     : r === 'stock' ? <StockScreen openRun={openRun} go={go} />
-    : <SettingsScreen tab={setTab} setTab={setSetTab} openRun={openRun} />;
+    : <SettingsScreen tab={setTab} setTab={setSetTab} openRun={openRun} go={go} />;
 
   const navProps = { route: split.on ? (split.focus === 'R' ? split.right : route) : route, go: (r: Route) => show(r), onSearch: () => setOverlay('search'), onNew: () => setOverlay('new'), onInbox: () => setOverlay('inbox'), onSplit: toggleSplit, split: split.on, openTimer: (id: string) => go('workflow', id) };
-  const useRail = COMPACT.includes(route) || win.width < 1200;
+  const useRail = tour == null && (COMPACT.includes(route) || win.width < 1200);
   const rootKeys: any = { onKeyDownCapture: keys };
   const shop = getShop();
   return (
@@ -195,6 +215,10 @@ export default function App() {
       {overlay === 'inbox' ? <Inbox onClose={() => setOverlay(null)} go={go} openSettings={() => go('settings', 'shop')} /> : null}
       {overlay === 'defect' && runSel && shop.runs.find(x => x.id === runSel) ? <DefectSheet r={shop.runs.find(x => x.id === runSel)!} onClose={() => setOverlay(null)} /> : null}
       {overlay === 'layout' ? <LayoutSheet split={split} setSplit={setSplit} left={route} setLeft={setRoute} onClose={() => setOverlay(null)} /> : null}
+      {setupOpen || (ready === 'ok' && !live.setupDone) ? (
+        <SetupWizard onDone={() => { setSetupOpen(false); setRoute('today'); }} onTour={() => { setSetupOpen(false); setSplit(s => ({ ...s, on: false })); setTour(0); }} />
+      ) : null}
+      {tour != null ? <TourOverlay step={tour} setStep={setTour} onDone={endTour} go={r => { setPeek(false); setRoute(r as Route); }} /> : null}
       <ContextMenuHost />
       <SnackBar />
     </View>
