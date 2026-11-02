@@ -6,7 +6,7 @@ import { F, R, useTheme } from './theme';
 import { CloseIcon, UndoIcon } from './icons';
 
 /* ---------- text ---------- */
-export function T({ style, s = 'body', color, numberOfLines, children }: { style?: StyleProp<TextStyle>; s?: 'title' | 'h1' | 'h2' | 'label' | 'body' | 'sub' | 'small' | 'num'; color?: string; numberOfLines?: number; children: React.ReactNode }) {
+export function T({ style, s = 'body', color, numberOfLines, children, onPress }: { style?: StyleProp<TextStyle>; s?: 'title' | 'h1' | 'h2' | 'label' | 'body' | 'sub' | 'small' | 'num'; color?: string; numberOfLines?: number; children: React.ReactNode; onPress?: () => void }) {
   const t = useTheme();
   const base: TextStyle =
     s === 'title' ? { fontSize: F.f34, fontWeight: '700', color: t.text, letterSpacing: -0.5 }
@@ -18,7 +18,7 @@ export function T({ style, s = 'body', color, numberOfLines, children }: { style
     : s === 'num' ? { fontSize: F.f22, fontWeight: '600', color: t.text, fontVariant: ['tabular-nums'] }
     : { fontSize: F.f15, color: t.text };
   return (
-    <Text numberOfLines={numberOfLines} style={[base, color ? { color } : null, style]}>
+    <Text numberOfLines={numberOfLines} onPress={onPress} style={[base, color ? { color } : null, style]}>
       {children}
     </Text>
   );

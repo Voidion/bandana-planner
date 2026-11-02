@@ -67,6 +67,50 @@ export interface Fabric {
   /** Prototype compatibility */
   onOrder: number;
   offcut?: boolean;
+  /** Supplier id from Shop.suppliers */
+  sup?: string | null;
+  /** Days from ordering to arriving (overrides the supplier's) */
+  lead?: number | null;
+  /** For an offcut: what it was left over from */
+  from?: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  site: string;
+  /** Usual days from ordering to arriving */
+  lead: number;
+  /** Shipping, in your words ("Free over $75") */
+  ship: string;
+  notes: string;
+}
+
+/** Tags, mailers, elastic, snaps… anything you keep a count of */
+export interface Supply {
+  id: string;
+  name: string;
+  /** What you count it in: tags, yards, sets */
+  unit: string;
+  qty: number;
+  low: number;
+  /** Cost for one unit, dollars */
+  cost: number;
+  /** Taken automatically: per bandana when a run finishes, per order when it's sent, or never */
+  use: 'bandana' | 'order' | 'item' | 'none';
+  /** How many each time it's used */
+  per: number;
+  sup: string | null;
+  url: string;
+  onOrder: number;
+}
+
+/** Yards taken off the shelf, for how fast each fabric gets used */
+export interface UsageLine {
+  f: string;
+  yd: number;
+  day: Day;
+  run: string | null;
 }
 
 export interface FabricUse {
@@ -132,6 +176,8 @@ export interface Run {
   finishedAt: Day | null;
   defects: number;
   notes: string;
+  /** Supplies taken when it finished */
+  supUse?: { id: string; name: string; unit: string; n: number }[];
 }
 
 export interface TemplateStep {
@@ -263,7 +309,9 @@ export interface Shop {
     /** Count your time as a cost (off: time isn't a cost) */
     payLabor: boolean;
   };
+  suppliers: Supplier[];
+  supplies: Supply[];
+  usage: UsageLine[];
   /** Engine compatibility: read by the shared engine, filled in later stages */
   products: unknown[];
-  supplies: unknown[];
 }

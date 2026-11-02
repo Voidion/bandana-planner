@@ -74,8 +74,10 @@ export function emptyShop(): Shop {
       round: 0.5,
       payLabor: false,
     },
-    products: [],
+    suppliers: [],
     supplies: [],
+    usage: [],
+    products: [],
   };
 }
 
@@ -139,9 +141,23 @@ export function migrate(raw: unknown): Shop {
       fees: { ...base.cfg.fees, ...(cfg.fees && typeof cfg.fees.rate === 'number' ? cfg.fees : {}) },
       hours: Array.isArray(cfg.hours) && cfg.hours.length === 7 ? cfg.hours : base.cfg.hours,
     },
+    suppliers: arr(s.suppliers),
+    supplies: arr<any>(s.supplies).map(x => ({ unit: '', qty: 0, low: 0, cost: 0, use: 'none', per: 1, sup: null, url: '', onOrder: 0, ...x })),
+    usage: arr(s.usage),
     products: [],
-    supplies: [],
   };
+  // Version 1 kept "where you buy it" as text on each fabric: those become suppliers.
+  out.fabrics.forEach(f => {
+    const name = (f.supplier || '').trim();
+    if (f.sup || !name) return;
+    let sp = out.suppliers.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (!sp) {
+      const site = /^(https?:\/\/|www\.)/i.test(name) ? name : '';
+      sp = { id: 'sp' + Math.random().toString(36).slice(2, 8), name: site ? name.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/.*$/, '') : name, site, lead: 7, ship: '', notes: '' };
+      out.suppliers.push(sp);
+    }
+    f.sup = sp.id;
+  });
   if (!out.templates.some(t => t.id === out.cfg.defTpl)) out.cfg.defTpl = out.templates[0].id;
   if (Array.isArray(s.plans) && s.plans.length) {
     const have = new Set(out.runs.map(r => r.id));

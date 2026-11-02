@@ -38,7 +38,6 @@ export function sync(shop: Shop) {
     sessions: shop.sessions.map(s => ({ ...s, day: rel(s.day) ?? 0 })),
     ledger: [],
     products: [],
-    supplies: [],
   });
 }
 

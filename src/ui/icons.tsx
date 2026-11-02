@@ -126,3 +126,23 @@ export const GearIcon = I(
 );
 export const UpIcon = I(<Path d="M6.5 14.5 12 9l5.5 5.5" />);
 export const DownIcon = I(<Path d="M6.5 9.5 12 15l5.5-5.5" />);
+export const CartIcon = I(
+  <>
+    <Path d="M3.5 4.5h2.2l2 10.5h10.6l1.9-7.5H7" />
+    <Circle cx="9.5" cy="19" r="1.4" />
+    <Circle cx="17" cy="19" r="1.4" />
+  </>,
+);
+export const StoreIcon = I(
+  <>
+    <Path d="M4 9.5 5.5 4.5h13L20 9.5" />
+    <Path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0" />
+    <Path d="M5.5 11.5v8h13v-8M10 19.5v-5h4v5" />
+  </>,
+);
+export const TagIcon = I(
+  <>
+    <Path d="M3.5 12.3V4.5a1 1 0 0 1 1-1h7.8l8.2 8.2a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0z" />
+    <Circle cx="8" cy="8" r="1.5" />
+  </>,
+);

@@ -23,6 +23,7 @@ import {
   useShop,
 } from '../../state/store';
 import type { Run } from '../../state/types';
+import { addOffcut } from '../../state/shelf';
 import { CheckIcon, DownIcon, PauseIcon, PlayIcon, StopIcon, UpIcon } from '../../ui/icons';
 import { Button, Field, IconButton, NumField, Row, Segmented, Sheet, showSnack, Stepper, Swatch, T } from '../../ui/kit';
 import { F, R, useTheme } from '../../ui/theme';
@@ -34,6 +35,7 @@ export function CutSheet({ r, onClose }: { r: Run; onClose: () => void }) {
   const shop = useShop();
   const t = useTheme();
   const [used, setUsed] = useState<(number | null)[]>(r.fabrics.map(x => x.need));
+  const [off, setOff] = useState<number | null>(null);
   const rows = r.fabrics.map((x, i) => {
     const f = shop.fabrics.find(y => y.id === x.f);
     const u = used[i] ?? x.need;
@@ -45,8 +47,9 @@ export function CutSheet({ r, onClose }: { r: Run; onClose: () => void }) {
   const live = !!shop.timer && !!cs && shop.timer.step === cs.id;
   const go = () => {
     cutRun(r.id, used.map((u, i) => u ?? r.fabrics[i].need));
+    if (off && off > 0 && r.fabrics[0]) addOffcut(r.fabrics[0].f, off, false);
     onClose();
-    showSnack('Fabric taken off the shelf');
+    showSnack(off && off > 0 ? `Fabric taken off the shelf. Kept ${yd(off)} as an offcut` : 'Fabric taken off the shelf');
   };
   return (
     <Sheet
@@ -80,6 +83,10 @@ export function CutSheet({ r, onClose }: { r: Run; onClose: () => void }) {
         ))}
       </View>
       <T s="small">Change an amount if you used more or less than planned. Future plans learn from what you really use.</T>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <T style={{ flex: 1 }}>Left a usable piece? Keep it as an offcut</T>
+        <NumField label="Offcut to keep" bare value={off} onChange={setOff} suffix="yd" width={110} placeholder="0" />
+      </View>
       <T s="small">{live ? `Ticks Cut day and keeps the ${mins(timerMs(shop.timer) / 6e4)} on your timer. ` : 'Ticks Cut day. '}{short.length ? 'Cutting anyway leaves that bolt below zero until you restock. ' : ''}You can undo the cut from the run if you change your mind.</T>
     </Sheet>
   );

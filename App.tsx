@@ -9,13 +9,15 @@ import { RunsScreen } from './src/screens/runs/RunsScreen';
 import { FixTimerSheet } from './src/screens/runs/sheets';
 import { SettingsScreen, type SettingsTab } from './src/screens/SettingsScreen';
 import { StockScreen } from './src/screens/StockScreen';
+import { RestockScreen, SuppliersScreen, SuppliesScreen } from './src/screens/ShelfScreens';
+import { restockList } from './src/state/shelf';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
-import { BatchesIcon, BoxIcon, FabricIcon, GearIcon, ScissorsIcon } from './src/ui/icons';
+import { BatchesIcon, BoxIcon, CartIcon, FabricIcon, GearIcon, ScissorsIcon, StoreIcon, TagIcon } from './src/ui/icons';
 import { Button, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
 
-type Route = 'runs' | 'fabric' | 'stock' | 'settings';
+type Route = 'runs' | 'fabric' | 'supplies' | 'restock' | 'suppliers' | 'stock' | 'settings';
 
 export default function App() {
   const t = useTheme();
@@ -23,6 +25,16 @@ export default function App() {
   const [route, setRoute] = useState<Route>('runs');
   const [runSel, setRunSel] = useState<string | null>(null);
   const [setTab, setSetTab] = useState<SettingsTab>('sizes');
+  const [fabSel, setFabSel] = useState<string | null>(null);
+  const [supSel, setSupSel] = useState<string | null>(null);
+  const openFabric = (id: string) => {
+    setFabSel(id);
+    setRoute('fabric');
+  };
+  const openSupply = (id: string) => {
+    setSupSel(id);
+    setRoute('supplies');
+  };
 
   const load = () => {
     setReady('loading');
@@ -58,9 +70,15 @@ export default function App() {
         <StaleTimer openRun={openRun} />
         <View style={{ flex: 1 }}>
           {route === 'fabric' ? (
-            <FabricScreen onPlanWith={id => openRun(planRun({ body: id, ties: id }))} openRun={openRun} />
+            <FabricScreen sel={fabSel} setSel={setFabSel} onPlanWith={id => openRun(planRun({ body: id, ties: id }))} openRun={openRun} />
           ) : route === 'runs' ? (
             <RunsScreen sel={runSel} setSel={setRunSel} goSetup={() => { setSetTab('sizes'); setRoute('settings'); }} />
+          ) : route === 'supplies' ? (
+            <SuppliesScreen sel={supSel} setSel={setSupSel} />
+          ) : route === 'suppliers' ? (
+            <SuppliersScreen openFabric={openFabric} openSupply={openSupply} />
+          ) : route === 'restock' ? (
+            <RestockScreen openFabric={openFabric} openSupply={openSupply} />
           ) : route === 'stock' ? (
             <StockScreen openRun={openRun} />
           ) : (
@@ -114,6 +132,7 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
   const low = shop.fabrics.filter(f => f.low > 0 && f.yards <= f.low).length;
   const active = shop.runs.filter(r => r.status === 'active').length;
   const stock = Object.values(stockBySize(shop)).reduce((a, b) => a + b, 0);
+  const need = restockList(shop).filter(i => !(i.x.onOrder > 0)).length;
   const item = (r: Route, label: string, icon: (c: string) => React.ReactNode, badge?: string, warn?: boolean) => {
     const on = route === r;
     return <NavItem key={r} on={on} label={label} icon={icon(on ? t.onTint : t.text2)} badge={badge} warn={warn} onPress={() => setRoute(r)} />;
@@ -128,7 +147,10 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
       </View>
       {item('runs', 'Runs', c => <ScissorsIcon color={c} />, active ? String(active) : undefined)}
       {item('fabric', 'Fabric', c => <FabricIcon color={c} />, low ? `${low} low` : undefined, true)}
-      {item('stock', 'Finished stock', c => <BoxIcon color={c} />, stock ? String(stock) : undefined)}
+      {item('supplies', 'Supplies', c => <BoxIcon color={c} />)}
+      {item('restock', 'Restock', c => <CartIcon color={c} />, need ? String(need) : undefined, true)}
+      {item('suppliers', 'Suppliers', c => <StoreIcon color={c} />)}
+      {item('stock', 'Finished stock', c => <TagIcon color={c} />, stock ? String(stock) : undefined)}
       {item('settings', 'Settings', c => <GearIcon color={c} />)}
       <View style={{ flex: 1 }} />
       <TimerCard onOpen={openRun} />

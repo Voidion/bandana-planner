@@ -102,7 +102,7 @@ export const newId = (p: string) => p + Date.now().toString(36) + Math.random().
 export const today = todayDay;
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 const short = (r: Run) => (r.name || 'Untitled run').split(' — ')[0];
-const withLog = (s: Shop, text: string, sub = ''): Shop => ({ ...s, activity: [{ who: 'You', text, sub, t: Date.now() }, ...s.activity].slice(0, 300) });
+export const withLog = (s: Shop, text: string, sub = ''): Shop => ({ ...s, activity: [{ who: 'You', text, sub, t: Date.now() }, ...s.activity].slice(0, 300) });
 const mapRun = (s: Shop, id: string, fn: (r: Run) => Run): Shop => ({ ...s, runs: s.runs.map(r => (r.id === id ? fn(r) : r)) });
 const findRun = (s: Shop, id: string) => s.runs.find(r => r.id === id);
 
@@ -257,7 +257,11 @@ export function cutRun(id: string, used: number[]) {
     });
     const take: Record<string, number> = {};
     fabUse.forEach(u => (take[u.f] = (take[u.f] || 0) + u.used));
-    let next: Shop = { ...s, fabrics: s.fabrics.map(f => (take[f.id] ? { ...f, yards: round2(f.yards - take[f.id]) } : f)) };
+    let next: Shop = {
+      ...s,
+      fabrics: s.fabrics.map(f => (take[f.id] ? { ...f, yards: round2(f.yards - take[f.id]) } : f)),
+      usage: [...s.usage.filter(u => u.run !== id), ...fabUse.map(u => ({ f: u.f, yd: u.used, day: today(), run: id }))],
+    };
     const cs = r0.steps.find(x => isCutStep(x.name));
     if (cs && s.timer && s.timer.step === cs.id) next = recordTimer(next);
     next = mapRun(next, id, x => ({
@@ -285,6 +289,7 @@ export function undoCut(id: string) {
     const next: Shop = {
       ...s,
       fabrics: s.fabrics.map(f => (give[f.id] ? { ...f, yards: round2(f.yards + give[f.id]) } : f)),
+      usage: s.usage.filter(u => u.run !== id),
       runs: s.runs.map(x =>
         x.id === id ? { ...x, cut: false, cutAt: null, fabUse: [], steps: x.steps.map(st => (isCutStep(st.name) ? { ...st, done: false } : st)) } : x,
       ),
@@ -303,6 +308,7 @@ export function setUsed(id: string, f: string, used: number) {
     return {
       ...s,
       fabrics: s.fabrics.map(x => (x.id === f ? { ...x, yards: round2(x.yards - diff) } : x)),
+      usage: s.usage.map(x => (x.run === id && x.f === f ? { ...x, yd: round2(used) } : x)),
       runs: s.runs.map(x => (x.id === id ? { ...x, fabUse: x.fabUse.map(y => (y.f === f ? { ...y, used: round2(used) } : y)) } : x)),
     };
   });
@@ -469,16 +475,28 @@ export function finishRun(id: string) {
       .filter(([, n]) => n > 0)
       .map(([size, n]) => ({ run: id, size, n }));
     const n = add.reduce((a, x) => a + x.n, 0);
-    return withLog({ ...next, stock: [...next.stock, ...add] }, 'finished ' + short(r), `${n} bandana${n === 1 ? '' : 's'}`);
+    const supUse = next.supplies.filter(x => (x.use === 'bandana' || x.use === 'item') && n > 0).map(x => ({ id: x.id, name: x.name, unit: x.unit, n: round2((+x.per || 1) * n) }));
+    const take = Object.fromEntries(supUse.map(u => [u.id, u.n]));
+    next = mapRun(next, id, x => ({ ...x, supUse }));
+    return withLog(
+      { ...next, stock: [...next.stock, ...add], supplies: next.supplies.map(x => (take[x.id] ? { ...x, qty: Math.max(0, round2(x.qty - take[x.id])) } : x)) },
+      'finished ' + short(r),
+      `${n} bandana${n === 1 ? '' : 's'}${supUse.length ? ' · used ' + supUse.map(u => `${u.n} ${u.name.toLowerCase()}`).join(', ') : ''}`,
+    );
   });
 }
 
 /** Back to in progress, and its bandanas come out of finished stock again. */
 export function reopenRun(id: string) {
-  update(s => ({
-    ...mapRun(s, id, r => ({ ...r, status: 'active', finishedAt: null })),
-    stock: s.stock.filter(x => x.run !== id),
-  }));
+  update(s => {
+    const r = findRun(s, id);
+    const give = Object.fromEntries((r?.supUse || []).map(u => [u.id, u.n]));
+    return {
+      ...mapRun(s, id, x => ({ ...x, status: 'active', finishedAt: null, supUse: [] })),
+      stock: s.stock.filter(x => x.run !== id),
+      supplies: s.supplies.map(x => (give[x.id] ? { ...x, qty: round2(x.qty + give[x.id]) } : x)),
+    };
+  });
 }
 
 /** Plan the same bandanas again */

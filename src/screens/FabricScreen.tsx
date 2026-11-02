@@ -4,6 +4,8 @@ import { money, perYd, plural, yd } from '../lib/format';
 import { planCount } from '../lib/plan';
 import { SWATCHES } from '../state/defaults';
 import { addFabric, deleteFabric, editFabric, restoreFabric, useShop } from '../state/store';
+import { addOffcut, arrived, cancelOrder, forecast, markOrdered, weeklyUse } from '../state/shelf';
+import { SupplierSelect } from './ShelfScreens';
 import type { Fabric, PrintTop } from '../state/types';
 import { FabricIcon, PlusIcon, SearchIcon, TrashIcon, WarnIcon } from '../ui/icons';
 import { Bar, Button, Card, Chip, Empty, Field, NumField, Row, Section, Segmented, Sheet, showSnack, Swatch, T } from '../ui/kit';
@@ -11,14 +13,13 @@ import { F, R, useTheme } from '../ui/theme';
 
 const isLow = (f: Fabric) => f.low > 0 && f.yards <= f.low;
 
-export function FabricScreen({ onPlanWith, openRun }: { onPlanWith: (fabricId: string) => void; openRun: (id: string) => void }) {
+export function FabricScreen({ onPlanWith, openRun, sel, setSel }: { onPlanWith: (fabricId: string) => void; openRun: (id: string) => void; sel: string | null; setSel: (id: string | null) => void }) {
   const shop = useShop();
   const t = useTheme();
-  const [sel, setSel] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [adding, setAdding] = useState(false);
   const list = useMemo(
-    () => shop.fabrics.filter(f => !q.trim() || (f.name + ' ' + f.supplier).toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)),
+    () => shop.fabrics.filter(f => !q.trim() || (f.name + ' ' + (shop.suppliers.find(x => x.id === f.sup)?.name || '') + ' ' + (f.from || '')).toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)),
     [shop.fabrics, q],
   );
   const cur = shop.fabrics.find(f => f.id === sel) || list[0] || null;
@@ -70,21 +71,29 @@ export function FabricScreen({ onPlanWith, openRun }: { onPlanWith: (fabricId: s
           ) : list.length === 0 ? (
             <T s="sub">No fabric matches “{q}”.</T>
           ) : (
-            <Card pad={false} style={{ overflow: 'hidden' }}>
-              {list.map((f, i) => (
-                <Row key={f.id} first={i === 0} selected={cur?.id === f.id} onPress={() => setSel(f.id)}>
-                  <Swatch color={f.color} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <T style={{ fontWeight: '600' }} numberOfLines={1}>{f.name}</T>
-                    <T s="sub" numberOfLines={1}>{perYd(f.cost)}{f.grain === 'directional' ? ' · directional' : ''}</T>
-                  </View>
-                  <View style={{ alignItems: 'flex-end', gap: 3 }}>
-                    <T style={{ fontWeight: '600', fontVariant: ['tabular-nums'] }} color={f.yards < 0 ? t.danger : isLow(f) ? (t.dark ? t.warn : t.warn) : t.text}>{yd(f.yards)}</T>
-                    {isLow(f) ? <Chip label={f.yards < 0 ? 'Below zero' : 'Low'} tone="warn" /> : null}
-                  </View>
-                </Row>
-              ))}
-            </Card>
+            <>
+              {[['Bolts', list.filter(f => !f.offcut)], ['Offcuts', list.filter(f => f.offcut)]].map(([title, items]: any) =>
+                items.length ? (
+                  <Section key={title} title={`${title} · ${items.length}`}>
+                    <Card pad={false} style={{ overflow: 'hidden' }}>
+                      {items.map((f: Fabric, i: number) => (
+                        <Row key={f.id} first={i === 0} selected={cur?.id === f.id} onPress={() => setSel(f.id)}>
+                          <Swatch color={f.color} />
+                          <View style={{ flex: 1, gap: 2 }}>
+                            <T style={{ fontWeight: '600' }} numberOfLines={1}>{f.name}</T>
+                            <T s="sub" numberOfLines={1}>{f.offcut ? `From ${f.from || 'an earlier cut'}` : perYd(f.cost)}{f.grain === 'directional' ? ' · directional' : ''}</T>
+                          </View>
+                          <View style={{ alignItems: 'flex-end', gap: 3 }}>
+                            <T style={{ fontWeight: '600', fontVariant: ['tabular-nums'] }} color={f.yards < 0 ? t.danger : isLow(f) ? t.warn : t.text}>{yd(f.yards)}</T>
+                            {isLow(f) ? <Chip label={f.yards < 0 ? 'Below zero' : 'Low'} tone="warn" /> : f.onOrder ? <Chip label="On order" tone="tint" /> : null}
+                          </View>
+                        </Row>
+                      ))}
+                    </Card>
+                  </Section>
+                ) : null,
+              )}
+            </>
           )}
         </ScrollView>
       </View>
@@ -105,6 +114,7 @@ function FabricDetail({ f, onPlanWith, openRun }: { f: Fabric; onPlanWith: (id: 
   const t = useTheme();
   const uses = shop.runs.filter(p => p.fabUse.some(u => u.f === f.id) || (!p.cut && p.status !== 'done' && (p.body === f.id || p.ties === f.id)));
   const scale = Math.max(5, f.yards, f.low * 2.5);
+  const [off, setOff] = useState(false);
   const set = (patch: Partial<Fabric>) => editFabric(f.id, patch);
   const remove = () => {
     const i = shop.fabrics.findIndex(x => x.id === f.id);
@@ -142,6 +152,12 @@ function FabricDetail({ f, onPlanWith, openRun }: { f: Fabric; onPlanWith: (id: 
         </View>
       </Card>
 
+      {!f.offcut ? <OrderCard f={f} /> : null}
+      <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+        <Button small kind="secondary" title="Keep an offcut" onPress={() => setOff(true)} />
+        <T s="small" style={{ flex: 1 }}>A leftover piece becomes its own fabric you can pick for small runs.</T>
+      </View>
+
       <Section title="Details">
         <Card style={{ gap: 16 }}>
           <Field label="Name" value={f.name} onChange={v => set({ name: v })} />
@@ -153,11 +169,11 @@ function FabricDetail({ f, onPlanWith, openRun }: { f: Fabric; onPlanWith: (id: 
             </View>
           ) : null}
           <T s="small">Directional prints keep every bandana the right way up on the mat, which can use more fabric.</T>
-          <Field label="Where you buy it" value={f.supplier} onChange={v => set({ supplier: v })} placeholder="Shop name or link" />
+          {!f.offcut ? <SupplierSelect label="Where you buy it" value={f.sup} onChange={v => set({ sup: v })} /> : <T s="sub">Left over from {f.from || 'an earlier cut'}. Offcuts can be picked for any run, and never show in Restock.</T>}
           <Field label="Notes" value={f.notes} onChange={v => set({ notes: v })} multiline placeholder="Fibre, weight, care…" />
           <View style={{ gap: 6 }}>
             <T s="label">Colour in lists</T>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               {SWATCHES.map(c => (
                 <Pressable key={c} accessibilityRole="radio" accessibilityLabel={'Colour ' + c} accessibilityState={{ checked: f.color === c }} onPress={() => set({ color: c })}
                   style={{ padding: 2, borderRadius: 10, borderWidth: 2, borderColor: f.color === c ? t.action : 'transparent' }}>
@@ -186,6 +202,7 @@ function FabricDetail({ f, onPlanWith, openRun }: { f: Fabric; onPlanWith: (id: 
       </Section>
 
       <Button kind="danger" title="Delete fabric" icon={c => <TrashIcon color={c} size={16} />} onPress={remove} style={{ alignSelf: 'flex-start' }} />
+      {off ? <OffcutSheet f={f} onClose={() => setOff(false)} /> : null}
     </ScrollView>
   );
 }
@@ -219,6 +236,53 @@ function NewFabricSheet({ onClose, onAdded }: { onClose: () => void; onAdded: (i
         <NumField label="Warn below" value={low} onChange={setLow} suffix="yd" width={120} />
       </View>
       <Segmented label="Print direction" value={grain} options={[['none', 'No direction'], ['directional', 'Has a right way up']]} onChange={setGrain} />
+    </Sheet>
+  );
+}
+
+function OrderCard({ f }: { f: Fabric }) {
+  const shop = useShop();
+  const t = useTheme();
+  const [n, setN] = useState<number | null>(null);
+  const fc = forecast(shop, f);
+  const wk = weeklyUse(shop, f.id);
+  const sp = shop.suppliers.find(x => x.id === f.sup);
+  return (
+    <Section title="Use and ordering">
+      <Card style={{ gap: 12 }}>
+        <T>{wk ? <><T style={{ fontWeight: '700' }}>{yd(wk)} a week</T> over the last 8 weeks{fc ? ` · ${fc.text.toLowerCase()}` : ''}.</> : 'Not cut from yet. Each cut logs its yards here, and the run-out forecast follows it.'}</T>
+        {f.onOrder ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <T style={{ flex: 1 }}><T style={{ fontWeight: '700' }}>{yd(f.onOrder)}</T> on order{sp ? ` from ${sp.name}` : ''}</T>
+            <Button small kind="ghost" title="Cancel order" onPress={() => cancelOrder('fabric', f.id)} />
+            <Button small title="It arrived" onPress={() => { arrived('fabric', f.id); showSnack(`${f.name}: +${yd(f.onOrder)} on the shelf`); }} />
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+            <NumField label="Order" value={n} onChange={setN} suffix="yd" width={130} placeholder={String(shop.cfg.newBolt.yards)} />
+            <Button small kind="secondary" title="Mark ordered" onPress={() => { const v = n || shop.cfg.newBolt.yards; markOrdered('fabric', f.id, v); setN(null); showSnack(`${yd(v)} of ${f.name} on order`); }} />
+            <T s="small" style={{ flex: 1 }}>{sp ? `${sp.name} usually takes ${f.lead ?? sp.lead} days.` : 'Pick where you buy it to see how long orders take.'}</T>
+          </View>
+        )}
+      </Card>
+    </Section>
+  );
+}
+
+function OffcutSheet({ f, onClose }: { f: Fabric; onClose: () => void }) {
+  const [n, setN] = useState<number | null>(null);
+  const [from, setFrom] = useState<'shelf' | 'extra'>('shelf');
+  const go = () => {
+    if (!(n && n > 0)) return;
+    addOffcut(f.id, n, from === 'shelf');
+    showSnack(`Kept ${yd(n)} as an offcut`);
+    onClose();
+  };
+  return (
+    <Sheet title="Keep an offcut" sub={f.name} onClose={onClose} footer={<><Button kind="ghost" title="Cancel" onPress={onClose} /><Button title="Keep it" onPress={go} disabled={!(n && n > 0)} /></>}>
+      <NumField label="How much" value={n} onChange={setN} suffix="yd" width={140} placeholder="0.5" />
+      <Segmented label="Where it comes from" value={from} options={[['shelf', 'Cut from this bolt'], ['extra', 'Left over from a cut']]} onChange={setFrom} />
+      <T s="small">{from === 'shelf' ? `Moves the yards from ${f.name} to the offcut.` : 'A cut already took its yards off the shelf, so this adds the leftover piece without changing the bolt.'}</T>
     </Sheet>
   );
 }
