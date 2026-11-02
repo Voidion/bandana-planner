@@ -9,7 +9,7 @@ import { SupplierSelect } from './ShelfScreens';
 import { PhotoStrip } from './PhotosScreen';
 import type { Fabric, PrintTop } from '../state/types';
 import { FabricIcon, PlusIcon, SearchIcon, TrashIcon, WarnIcon } from '../ui/icons';
-import { Bar, Button, Card, Chip, Empty, Field, NumField, Row, Section, Segmented, Sheet, showSnack, Swatch, T } from '../ui/kit';
+import { Bar, Button, Card, Chip, Empty, Field, NumField, Row, Section, Segmented, Sheet, showSnack, Swatch, T, TwoPane } from '../ui/kit';
 import { F, R, useTheme } from '../ui/theme';
 
 const isLow = (f: Fabric) => f.low > 0 && f.yards <= f.low;
@@ -29,8 +29,9 @@ export function FabricScreen({ onPlanWith, openRun, sel, setSel }: { onPlanWith:
   const low = shop.fabrics.filter(isLow);
 
   return (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
-      <View style={{ width: 380, borderRightWidth: 1, borderRightColor: t.line, backgroundColor: t.bg }}>
+    <View style={{ flex: 1 }}>
+      <TwoPane sel={sel} listWidth={380} list={
+      <View style={{ flex: 1 }}>
         <View style={{ padding: 24, paddingBottom: 12, gap: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <T s="title">Fabric</T>
@@ -105,13 +106,11 @@ export function FabricScreen({ onPlanWith, openRun, sel, setSel }: { onPlanWith:
           )}
         </ScrollView>
       </View>
-      <View style={{ flex: 1 }}>
-        {cur ? <FabricDetail key={cur.id} f={cur} onPlanWith={onPlanWith} openRun={openRun} /> : (
+      } detail={cur ? <FabricDetail key={cur.id} f={cur} onPlanWith={onPlanWith} openRun={openRun} /> : (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <T s="sub">Fabric you add shows here.</T>
           </View>
-        )}
-      </View>
+        )} />
       {adding ? <NewFabricSheet onClose={() => setAdding(false)} onAdded={id => { setSel(id); setAdding(false); }} /> : null}
     </View>
   );

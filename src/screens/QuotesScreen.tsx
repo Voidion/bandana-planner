@@ -10,7 +10,7 @@ import { onDevice, openPath, revealFile, saveDocument } from '../state/storage';
 import { useShop } from '../state/store';
 import type { Quote } from '../state/types';
 import { CloseIcon, DownloadIcon, PlusIcon, TrashIcon } from '../ui/icons';
-import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, Select, Sheet, showSnack, Stepper, T } from '../ui/kit';
+import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, Select, Sheet, showSnack, Stepper, T, TwoPane } from '../ui/kit';
 import { F, R, useTheme } from '../ui/theme';
 import { CustomerSelect } from './SellingScreens';
 import { EditIcon } from '../ui/icons';
@@ -24,8 +24,8 @@ export function QuotesScreen({ sel, setSel, openOrder }: { sel: string | null; s
   const cur = shop.quotes.find(q => q.id === sel) || shop.quotes[0] || null;
   const add = () => setSel(addQuote());
   return (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
-      <View style={{ width: 340, borderRightWidth: 1, borderRightColor: t.line }}>
+    <TwoPane sel={sel} listWidth={340} list={
+      <View style={{ flex: 1 }}>
         <View style={{ padding: 24, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <T s="title">Quotes</T>
           <Button small title="New quote" icon={c => <PlusIcon color={c} size={16} />} onPress={add} />
@@ -63,8 +63,7 @@ export function QuotesScreen({ sel, setSel, openOrder }: { sel: string | null; s
           })}
         </ScrollView>
       </View>
-      <View style={{ flex: 1 }}>{cur ? <QuoteEditor key={cur.id} q={cur} openOrder={openOrder} onDeleted={() => setSel(null)} /> : null}</View>
-    </View>
+    } detail={cur ? <QuoteEditor key={cur.id} q={cur} openOrder={openOrder} onDeleted={() => setSel(null)} /> : null} />
   );
 }
 

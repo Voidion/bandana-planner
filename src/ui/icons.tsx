@@ -185,3 +185,45 @@ export const PhotoIcon = I(
     <Path d="m4 17 5-4.5 3.5 3 3-2.5L20 17" />
   </>,
 );
+
+/* Navigation icons, exactly as the prototype draws them (2px stroke where the prototype uses it). */
+const I2 = (children: React.ReactNode, base = 2) =>
+  function Icon({ size = 20, color, sw = base }: P) {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </Svg>
+    );
+  };
+export const TodayIcon = I2(<><Path d="M5 8.5h14L12 20z" /><Path d="M5 8.5 2.6 5.6M19 8.5l2.4-2.9" /><Path d="M8.4 8.5c1.4 2 5.8 2 7.2 0" /></>);
+export const RunsIcon = I2(<><Path d="M12 3.5 21 8l-9 4.5L3 8z" /><Path d="M3 12l9 4.5 9-4.5" /><Path d="M3 16l9 4.5 9-4.5" /></>);
+export const TimeIcon = I2(<><Circle cx="12" cy="13.5" r="7.5" /><Path d="M12 13.5l3.2-3.2" /><Path d="M10 2.8h4" /><Path d="M12 2.8V6" /></>);
+export const TrendIcon = I2(<><Path d="M6.5 17v-4.5" /><Path d="M12 17V7.5" /><Path d="M17.5 17v-7" /><Path d="M4 20.5h16" /></>);
+export const PriceIcon = I(<><Path d="M20 12.6l-7.4 7.4a2 2 0 0 1-2.8 0l-6-6a2 2 0 0 1-.6-1.4V5a1 1 0 0 1 1-1h7.6a2 2 0 0 1 1.4.6l6.8 6.8a1.6 1.6 0 0 1 0 1.2z" /><Circle cx="8.2" cy="8.2" r="1.3" /></>);
+export const WalletIcon = I(<><Path d="M4.5 7.5h13a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z" /><Path d="M4.5 7.5l10-3 1.2 3" /><Circle cx="15.8" cy="13.5" r="1.1" /></>);
+export const CoinIcon = I(<><Circle cx="12" cy="12" r="8.2" /><Path d="M12 7.4v9.2" /><Path d="M14.3 9.7a2.3 2.3 0 0 0-2.3-1.3c-1.3 0-2.3.8-2.3 1.9s1 1.6 2.3 1.9 2.3.8 2.3 1.9-1 1.9-2.3 1.9a2.3 2.3 0 0 1-2.3-1.3" /></>);
+export const ShelfIcon = I(<><Rect x="3.5" y="5" width="17" height="4.6" rx="1.6" /><Rect x="3.5" y="9.7" width="17" height="4.6" rx="1.6" /><Rect x="3.5" y="14.4" width="17" height="4.6" rx="1.6" /><Path d="M8.5 5v14" /></>);
+export const DocIcon = I(<><Path d="M7 3.5h6.8L18 7.7V19.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z" /><Path d="M13.5 3.5V8H18" /><Path d="M9 12.5h6M9 16h4" /></>);
+export const PulseIcon = I(<Path d="M3.5 12h4l2.5-6 4 12 2.5-6h4" />);
+export const BellIcon = I(<><Path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z" /><Path d="M10 20.5a2.2 2.2 0 0 0 4 0" /></>);
+export const SplitIcon = I(<><Rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><Path d="M12 4.5v15" /></>);
+export const SlidersIcon = I(<><Path d="M4 7.5h10M17.5 7.5H20" /><Path d="M4 16.5h3.5M11 16.5h9" /><Circle cx="15.75" cy="7.5" r="2.25" /><Circle cx="9.25" cy="16.5" r="2.25" /></>);
+export const SunIcon = I(<><Circle cx="12" cy="12" r="4" /><Path d="M12 2.8v1.9M12 19.3v1.9M5.5 5.5l1.35 1.35M17.15 17.15l1.35 1.35M2.8 12h1.9M19.3 12h1.9M5.5 18.5l1.35-1.35M17.15 6.85l1.35-1.35" /></>);
+export const MoonIcon = I(<Path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z" />);
+export function AutoThemeIcon({ size = 20, color }: P) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
+      <Circle cx="12" cy="12" r="8.25" />
+      <Path d="M12 3.75a8.25 8.25 0 0 1 0 16.5z" fill={color} />
+    </Svg>
+  );
+}
+export function MoreIcon({ size = 22, color }: P) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Circle cx="5.5" cy="12" r="1.7" />
+      <Circle cx="12" cy="12" r="1.7" />
+      <Circle cx="18.5" cy="12" r="1.7" />
+    </Svg>
+  );
+}

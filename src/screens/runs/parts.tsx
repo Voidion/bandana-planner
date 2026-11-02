@@ -5,11 +5,11 @@ import { clock, inch, mins, money, pct, plural, yd } from '../../lib/format';
 import { computePlan, cutFiles, MATS, matWaste, runNumbers, timerMs } from '../../lib/plan';
 import { onDevice, revealFile, saveCutFile } from '../../state/storage';
 import { moveStep, pauseTimer, removeStep, restoreStep, startTimer, stopTimer, tickStep, useShop } from '../../state/store';
-import type { Run, Step } from '../../state/types';
+import type { Run, Shop, Step } from '../../state/types';
 import { CheckIcon, DownloadIcon, FolderIcon, PauseIcon, PlayIcon, StopIcon } from '../../ui/icons';
 import { Button, Card, Row, Section, Sheet, showSnack, Swatch, T, useContextMenu } from '../../ui/kit';
 import { MatView } from '../../ui/MatView';
-import { F, R, useTheme } from '../../ui/theme';
+import { F, R, shadow, useTheme } from '../../ui/theme';
 import { useNow } from '../../ui/useNow';
 
 export const shortName = (r: Run) => (r.name || 'Untitled run').split(' — ')[0];
@@ -123,7 +123,23 @@ export function CutLayout({ r, editable }: { r: Run; editable?: boolean }) {
   );
 }
 
-/** One step: tick, name and time, and a timer button */
+/** What the line under a step says, and its colour (as the prototype words it) */
+export function stepSub(t: ReturnType<typeof useTheme>, r: Run, s: Step, m: Shop['timer']): [string, string] {
+  const live = !!m && m.step === s.id;
+  if (s.done && s.entered) return ['Entered by hand · not used in estimates', t.text3];
+  if (s.done) {
+    if (!s.actual) return [s.untimed ? 'Done · not timed' : 'Done', t.success];
+    const over = s.actual > s.est * 1.1;
+    return [s.actual === s.est ? `On plan · ${mins(s.est)}` : s.actual < s.est ? `${mins(s.est - s.actual)} under · planned ${mins(s.est)}` : `${mins(s.actual - s.est)} over · planned ${mins(s.est)}`, over ? t.warn : t.success];
+  }
+  if (live) return [`${m!.paused ? 'Paused' : 'Timing'} · ${clock(timerMs(m))}`, m!.paused ? t.warn : t.success];
+  if (s.note) return [s.note, t.text3];
+  if (s.source === 'learned') return ['From your timed runs', t.action];
+  if (/cut day/i.test(s.name) && !r.cut) return ['Ticking takes fabric off the shelf', t.warn];
+  return ['Not timed yet', t.text3];
+}
+
+/** One step: tick, name and what happened, time, and a timer button */
 export function StepRow({ r, s, first, onOpen, onCut }: { r: Run; s: Step; first?: boolean; onOpen: () => void; onCut: () => void }) {
   const ctxMenu = useStepMenu(r, s, onOpen, onCut);
   const shop = useShop();
@@ -140,42 +156,40 @@ export function StepRow({ r, s, first, onOpen, onCut }: { r: Run; s: Step; first
       if (res) showSnack(`Recorded ${mins(res.mins)} for ${res.step}`);
     } else startTimer(r.id, s.id);
   };
-  const sub = live ? `${m!.paused ? 'Paused' : 'You’re timing'} · ${clock(timerMs(m))}` : s.note ? s.note : '';
+  const [sub, subColor] = stepSub(t, r, s, m);
   return (
     <View
       {...ctxMenu}
       onPointerEnter={() => setHover(true)}
       onPointerLeave={() => setHover(false)}
-      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingHorizontal: 14, borderTopWidth: first ? 0 : 1, borderTopColor: t.line, backgroundColor: hover ? t.bg : 'transparent' }}>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: s.done }}
-        accessibilityLabel={`${s.done ? 'Untick' : 'Tick'} ${s.name}`}
-        onPress={tick}
-        hitSlop={8}
-        style={{ width: 26, height: 26, borderRadius: 13, borderWidth: s.done ? 0 : 2, borderColor: live ? t.success : t.line2, backgroundColor: s.done ? t.success : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-        {s.done ? <CheckIcon color={t.dark ? t.bg : '#fff'} size={16} sw={2.4} /> : null}
-      </Pressable>
-      <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`${s.name}, ${s.done ? 'done' : 'not done'}`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, alignSelf: 'stretch' }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <T style={{ fontWeight: '600', textDecorationLine: s.done ? 'line-through' : 'none' }} color={s.done ? t.text3 : t.text}>{s.name}</T>
-          {sub ? <T s="small" color={live ? (m!.paused ? t.warn : t.success) : t.text3} numberOfLines={1}>{sub}</T> : null}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 62, paddingRight: 8, borderTopWidth: first ? 0 : 1, borderTopColor: t.line, backgroundColor: live ? t.successTint : hover ? t.bg : 'transparent' }}>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: s.done }} accessibilityLabel={`${s.done ? 'Untick' : 'Tick'} ${s.name}`} onPress={tick}
+        style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: s.done ? 0 : 2, borderColor: live ? t.success : t.line2, backgroundColor: s.done ? t.success : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+          {s.done ? <CheckIcon color={t.onSuccessSolid} size={16} sw={2.4} /> : live ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: t.success }} /> : null}
         </View>
-        <T s="sub" style={{ fontVariant: ['tabular-nums'] }}>{s.done && s.actual ? mins(s.actual) : s.done ? 'Not timed' : '~' + mins(s.est)}</T>
+      </Pressable>
+      <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`${s.name}, ${s.done ? 'done' : 'not done'}`} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'stretch' }}>
+        <View style={{ flex: 1, gap: 2, justifyContent: 'center' }}>
+          <T style={{ fontSize: F.f16, fontWeight: live ? '600' : '400', textDecorationLine: s.done ? 'line-through' : 'none' }} color={s.done ? t.text3 : t.text}>{s.name}</T>
+          <T style={{ fontSize: F.f13, fontWeight: '600' }} color={subColor} numberOfLines={1}>{sub}</T>
+        </View>
+        <T style={{ fontSize: F.f15, fontVariant: ['tabular-nums'], paddingHorizontal: 2 }} color={s.source === 'learned' && !s.done ? t.action : t.text2}>{s.done && s.actual ? mins(s.actual) : s.done ? '' : '~' + mins(s.est)}</T>
       </Pressable>
       {!s.done ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${live ? 'Stop' : 'Start'} timer for ${s.name}`}
-          onPress={timer}
-          style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: live ? t.action : t.sunken }}>
-          {live ? <StopIcon color={t.onAction} size={13} /> : <PlayIcon color={t.text} size={14} />}
+        <Pressable accessibilityRole="button" accessibilityLabel={`${live ? 'Stop' : 'Start'} timer for ${s.name}`} onPress={timer}
+          style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: live ? t.success : t.tint2 }}>
+          {live ? <StopIcon color={t.onSuccessSolid} size={18} /> : <PlayIcon color={t.action} size={18} />}
         </Pressable>
-      ) : (
-        <View style={{ width: 34 }} />
-      )}
+      ) : null}
     </View>
   );
+}
+
+/** The white box the steps sit in */
+export function StepsBox({ children }: { children: React.ReactNode }) {
+  const t = useTheme();
+  return <View style={[{ backgroundColor: t.surface, borderRadius: 20, paddingVertical: 4, paddingLeft: 4, paddingRight: 0, overflow: 'hidden' }, shadow(t.dark)]}>{children}</View>;
 }
 
 function useStepMenu(r: Run, s: Step, onOpen: () => void, onCut: () => void) {

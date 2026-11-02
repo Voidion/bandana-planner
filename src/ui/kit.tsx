@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { parseNum } from '../lib/format';
-import { F, R, useTheme } from './theme';
+import { F, R, shadow, useTheme } from './theme';
 import { CloseIcon, UndoIcon } from './icons';
 
 /* ---------- text ---------- */
@@ -41,9 +41,9 @@ export function Button({ title, onPress, kind = 'primary', small, icon, disabled
       onHoverOut={() => setHover(false)}
       style={({ pressed }) => [
         {
-          minHeight: small ? 34 : 42,
-          paddingHorizontal: small ? 12 : 18,
-          borderRadius: R.control,
+          minHeight: small ? 44 : 52,
+          paddingHorizontal: small ? 16 : 18,
+          borderRadius: small ? 22 : R.control,
           backgroundColor: bg,
           flexDirection: 'row',
           alignItems: 'center',
@@ -57,7 +57,7 @@ export function Button({ title, onPress, kind = 'primary', small, icon, disabled
         style,
       ]}>
       {icon ? icon(fg) : null}
-      <Text style={{ color: fg, fontSize: small ? F.f14 : F.f15, fontWeight: '600' }}>{title}</Text>
+      <Text style={{ color: fg, fontSize: small ? F.f15 : F.f16, fontWeight: '600' }}>{title}</Text>
     </Pressable>
   );
 }
@@ -76,7 +76,7 @@ export function IconButton({ onPress, label, children, active }: { onPress: () =
 /* ---------- surfaces ---------- */
 export function Card({ children, style, pad = true }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; pad?: boolean }) {
   const t = useTheme();
-  return <View style={[{ backgroundColor: t.surface, borderRadius: R.card, borderWidth: t.dark ? 0 : 1, borderColor: t.line }, pad ? { padding: 18 } : null, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: t.surface, borderRadius: R.card }, shadow(t.dark), pad ? { padding: 18 } : null, style]}>{children}</View>;
 }
 
 export function Section({ title, right, children, style }: { title: string; right?: React.ReactNode; children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
@@ -118,6 +118,8 @@ const setMenu = (m: MenuState) => {
 };
 export const closeMenu = () => setMenu(null);
 export const menuOpen = () => !!menuState;
+/** Opens a menu at a point, for buttons that show a menu on a normal click */
+export const openMenuAt = (x: number, y: number, items: MenuItem[]) => setMenu({ x, y, items: items.filter(Boolean) as Exclude<MenuItem, null>[] });
 
 /** Props for a view that opens a menu on right-click (Windows sends which button was pressed with each pointer event). */
 export function useContextMenu(items?: MenuItem[]) {
@@ -250,16 +252,16 @@ export function NumField({ label, value, onChange, suffix, prefix, width = 120, 
   );
 }
 
-export function Segmented<V extends string>({ value, options, onChange, label, bare }: { value: V; options: [V, string][]; onChange: (v: V) => void; label?: string; bare?: boolean }) {
+export function Segmented<V extends string>({ value, options, onChange, label, bare, fill }: { value: V; options: [V, string][]; onChange: (v: V) => void; label?: string; bare?: boolean; fill?: boolean }) {
   const t = useTheme();
   return (
-    <View style={{ gap: 4 }}>
+    <View style={{ gap: 4, alignSelf: fill ? 'stretch' : undefined }}>
       {label && !bare ? <T s="label">{label}</T> : null}
-      <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', backgroundColor: t.sunken, borderRadius: R.control, padding: 3, alignSelf: 'flex-start' }}>
+      <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', gap: 2, backgroundColor: t.sunken, borderRadius: 14, padding: 3, alignSelf: fill ? 'stretch' : 'flex-start' }}>
         {options.map(([v, l]) => (
           <Pressable key={v} accessibilityRole="radio" accessibilityState={{ checked: v === value }} onPress={() => onChange(v)}
-            style={{ paddingHorizontal: 14, minHeight: 32, justifyContent: 'center', borderRadius: R.control - 3, backgroundColor: v === value ? t.surface : 'transparent' }}>
-            <Text style={{ color: v === value ? t.text : t.text2, fontSize: F.f14, fontWeight: v === value ? '600' : '500' }}>{l}</Text>
+            style={[{ flex: fill ? 1 : undefined, paddingHorizontal: 12, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: v === value ? t.surface : 'transparent' }, v === value && !t.dark ? { shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : null]}>
+            <Text numberOfLines={1} style={{ color: v === value ? t.text : t.text2, fontSize: F.f15, fontWeight: '600' }}>{l}</Text>
           </Pressable>
         ))}
       </View>
@@ -270,10 +272,10 @@ export function Segmented<V extends string>({ value, options, onChange, label, b
 export function Chip({ label, tone = 'plain' }: { label: string; tone?: 'plain' | 'warn' | 'ok' | 'tint' | 'bad' }) {
   const t = useTheme();
   const bg = tone === 'warn' ? t.warnTint : tone === 'ok' ? t.successTint : tone === 'tint' ? t.tint : tone === 'bad' ? t.dangerTint : t.sunken;
-  const fg = tone === 'warn' ? (t.dark ? t.onWarn : t.warn) : tone === 'ok' ? t.success : tone === 'tint' ? t.onTint : tone === 'bad' ? t.danger : t.text2;
+  const fg = tone === 'warn' ? t.onWarn : tone === 'ok' ? t.onSuccess : tone === 'tint' ? t.onTint : tone === 'bad' ? t.onDanger : t.text2;
   return (
-    <View style={{ backgroundColor: bg, borderRadius: R.chip, paddingHorizontal: 9, paddingVertical: 3, alignSelf: 'flex-start' }}>
-      <Text style={{ color: fg, fontSize: F.f12, fontWeight: '600' }}>{label}</Text>
+    <View style={{ backgroundColor: bg, borderRadius: R.chip, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start' }}>
+      <Text numberOfLines={1} style={{ color: fg, fontSize: F.f13, fontWeight: '600' }}>{label}</Text>
     </View>
   );
 }
@@ -408,5 +410,40 @@ export function Select<V extends string>({ value, options, onChange, label, widt
         </Sheet>
       ) : null}
     </>
+  );
+}
+
+/* ---------- list beside detail; one at a time with Back when there isn't room (Split view, small windows) ---------- */
+export function TwoPane({ list, detail, sel, listWidth = 360, listBg }: { list: React.ReactNode; detail: React.ReactNode; sel: string | null | undefined; listWidth?: number; listBg?: string }) {
+  const t = useTheme();
+  const [w, setW] = useState(2000);
+  const [showDetail, setShowDetail] = useState(false);
+  const first = React.useRef(true);
+  useEffect(() => {
+    if (first.current) return void (first.current = false);
+    setShowDetail(true);
+  }, [sel]);
+  const narrow = w < listWidth + 440;
+  if (!narrow)
+    return (
+      <View onLayout={e => setW(e.nativeEvent.layout.width)} style={{ flex: 1, flexDirection: 'row' }}>
+        <View style={{ width: listWidth, borderRightWidth: 1, borderRightColor: t.line, backgroundColor: listBg }}>{list}</View>
+        <View style={{ flex: 1 }}>{detail}</View>
+      </View>
+    );
+  return (
+    <View onLayout={e => setW(e.nativeEvent.layout.width)} style={{ flex: 1 }}>
+      {showDetail && detail ? (
+        <>
+          <Pressable accessibilityRole="button" accessibilityLabel="Back to the list" onPress={() => setShowDetail(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 20, paddingTop: 14, minHeight: 44 }}>
+            <Text style={{ color: t.action, fontSize: 22, marginTop: -3 }}>‹</Text>
+            <Text style={{ color: t.action, fontSize: F.f15, fontWeight: '600' }}>Back</Text>
+          </Pressable>
+          <View style={{ flex: 1 }}>{detail}</View>
+        </>
+      ) : (
+        <View style={{ flex: 1, backgroundColor: listBg }}>{list}</View>
+      )}
+    </View>
   );
 }

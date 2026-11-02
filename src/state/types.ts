@@ -535,7 +535,7 @@ export interface Shop {
     /** Light, dark, or follow Windows */
     theme: 'system' | 'light' | 'dark';
     /** Windows notifications for reminders */
-    remind: { on: boolean; hour: number; orders: boolean; payments: boolean; restock: boolean; timer: boolean; tools: boolean; quotes: boolean };
+    remind: { on: boolean; hour: number; orders: boolean; payments: boolean; restock: boolean; timer: boolean; tools: boolean; quotes: boolean; due: boolean; market: boolean; days: number };
     /** What every quote says: how to reach you, how to pay, and your notes */
     quote: { email: string; phone: string; insta: string; site: string; pay: string; notes: string[]; holdDays: number };
   };
@@ -553,6 +553,10 @@ export interface Shop {
   albums: Album[];
   /** Reminders already sent (key → day), so each is sent once */
   notified: Record<string, Day>;
+  /** Reminders you dismissed, snoozed (until when) or have seen */
+  /** Split view pairs you saved */
+  pairs?: { id: string; name: string; left: string; right: string; ratio: number }[];
+  alertSt?: { dis: Record<string, Day>; snz: Record<string, number>; seen: Record<string, Day> };
   goals: { income: number; hours: number };
   usage: UsageLine[];
   products: Product[];

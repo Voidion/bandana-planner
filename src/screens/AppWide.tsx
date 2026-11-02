@@ -1,4 +1,5 @@
 /* App-wide: search everything, the New menu, keyboard shortcuts, and Settings › Shop. */
+import { REM_KINDS } from '../state/alerts';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { money, plural, yd } from '../lib/format';
@@ -21,23 +22,28 @@ export const SHORTCUTS: [string, string][] = [
   ['Ctrl + N', 'New…'],
   ['Ctrl + 1', 'Today'],
   ['Ctrl + 2', 'Runs'],
-  ['Ctrl + 3', 'Orders'],
-  ['Ctrl + 4', 'Sales'],
-  ['Ctrl + 5', 'Fabric'],
-  ['Ctrl + 6', 'Finished stock'],
+  ['Ctrl + 3', 'Workflow'],
+  ['Ctrl + 4', 'Schedule'],
+  ['Ctrl + 5', 'Orders'],
+  ['Ctrl + 6', 'Quotes'],
+  ['Ctrl + 7', 'Customers'],
+  ['Ctrl + 8', 'Payments'],
+  ['Ctrl + 9', 'Fabric'],
+  ['Ctrl + \\', 'Split view'],
   ['Ctrl + ,', 'Settings'],
   ['Esc', 'Close'],
 ];
-const NAV: Record<string, string> = { '1': 'today', '2': 'runs', '3': 'orders', '4': 'sales', '5': 'fabric', '6': 'stock', ',': 'settings' };
+const NAV: Record<string, string> = { '1': 'today', '2': 'runs', '3': 'workflow', '4': 'schedule', '5': 'orders', '6': 'quotes', '7': 'customers', '8': 'sales', '9': 'fabric', ',': 'settings' };
 
 /** Handles shortcuts for a key event from the app's root view. Returns true when it used the key. */
-export function handleKey(e: any, a: { search: () => void; newMenu: () => void; go: Go; close: () => boolean }) {
+export function handleKey(e: any, a: { search: () => void; newMenu: () => void; go: Go; close: () => boolean; split?: () => void }) {
   const k = String(e?.nativeEvent?.key || '').toLowerCase();
   const ctrl = !!(e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey);
   if (k === 'escape') return a.close();
   if (!ctrl) return false;
   if (k === 'k' || k === 'f') return a.search(), true;
   if (k === 'n') return a.newMenu(), true;
+  if (k === '\\' && a.split) return a.split(), true;
   if (NAV[k]) return a.go(NAV[k]), true;
   return false;
 }
@@ -128,23 +134,21 @@ export function ShopSettings() {
       </Card>
       <Section title="Reminders">
         <Card style={{ gap: 12 }}>
+          <T style={{ fontWeight: '600' }}>Remind me about</T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {REM_KINDS.map(([k, l]) => {
+              const on = (shop.cfg.remind as any)[k] !== false;
+              return (
+                <Pressable key={k} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, [k]: !on } } }))} style={{ paddingHorizontal: 12, minHeight: 32, justifyContent: 'center', borderRadius: R.chip, backgroundColor: on ? t.tint : t.sunken }}>
+                  <T style={{ fontSize: F.f14, fontWeight: '600' }} color={on ? t.onTint : t.text2}>{on ? '✓ ' : ''}{l}</T>
+                </Pressable>
+              );
+            })}
+          </View>
+          {shop.cfg.remind.due ? <Segmented label="Warn me before a run is due" value={String(shop.cfg.remind.days || 2)} onChange={v => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, days: +v } } }))} options={[['1', '1 day'], ['2', '2 days'], ['3', '3 days'], ['5', '5 days']]} /> : null}
           <Segmented label="Windows notifications" value={shop.cfg.remind.on ? 'on' : 'off'} onChange={v => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, on: v === 'on' } } }))} options={[['on', 'On'], ['off', 'Off']]} />
-          {shop.cfg.remind.on ? (
-            <>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {([['orders', 'Orders due'], ['payments', 'Overdue payments'], ['restock', 'Restock'], ['timer', 'Timer left running'], ['tools', 'Tools due'], ['quotes', 'Quotes ending']] as const).map(([k, l]) => {
-                  const on = shop.cfg.remind[k];
-                  return (
-                    <Pressable key={k} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, [k]: !on } } }))} style={{ paddingHorizontal: 12, minHeight: 32, justifyContent: 'center', borderRadius: R.chip, backgroundColor: on ? t.tint : t.sunken }}>
-                      <T style={{ fontSize: F.f14, fontWeight: '600' }} color={on ? t.onTint : t.text2}>{on ? '✓ ' : ''}{l}</T>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Segmented label="Daily reminders from" value={String(shop.cfg.remind.hour)} onChange={v => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, hour: +v } } }))} options={[['7', '7 am'], ['9', '9 am'], ['12', 'Noon'], ['17', '5 pm']]} />
-              <T s="small">While Bandana Planner is open, each reminder is sent once. The timer one comes whenever a timer passes your check-in time. Today’s “Needs you” list shows the same things.</T>
-            </>
-          ) : null}
+          {shop.cfg.remind.on ? <Segmented label="Daily reminders from" value={String(shop.cfg.remind.hour)} onChange={v => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, hour: +v } } }))} options={[['7', '7 am'], ['9', '9 am'], ['12', 'Noon'], ['17', '5 pm']]} /> : null}
+          <T s="small">Everything collects in the bell. With notifications on, each one also pops up in Windows once while Bandana Planner is open. The timer one comes whenever a timer passes your check-in time.</T>
         </Card>
       </Section>
 

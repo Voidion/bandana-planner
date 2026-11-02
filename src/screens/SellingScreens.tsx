@@ -37,18 +37,13 @@ import {
 import { useShop } from '../state/store';
 import type { Channel, Customer, CustomerKind, Order, Sale } from '../state/types';
 import { CloseIcon, PlusIcon, TrashIcon } from '../ui/icons';
-import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, Select, Sheet, showSnack, Stepper, Swatch, T } from '../ui/kit';
+import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, Select, Sheet, showSnack, Stepper, Swatch, T, TwoPane } from '../ui/kit';
 import { F, R, useTheme } from '../ui/theme';
 import { CartIcon, TagIcon, StoreIcon } from '../ui/icons';
 import { ShopifyImport } from './ShopifyImport';
 import { PhotoStrip } from './PhotosScreen';
 
-const twoPane = (left: React.ReactNode, right: React.ReactNode, t: any, w = 360) => (
-  <View style={{ flex: 1, flexDirection: 'row' }}>
-    <View style={{ width: w, borderRightWidth: 1, borderRightColor: t.line }}>{left}</View>
-    <View style={{ flex: 1 }}>{right}</View>
-  </View>
-);
+const twoPane = (left: React.ReactNode, right: React.ReactNode, _t: any, sel?: string | null) => <TwoPane list={left} detail={right} sel={sel} />;
 const Head = ({ title, action }: { title: string; action?: React.ReactNode }) => (
   <View style={{ padding: 24, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
     <T s="title">{title}</T>
@@ -288,7 +283,7 @@ export function OrdersScreen({ sel, setSel, openRun }: { sel: string | null; set
       </ScrollView>
     </>
   );
-  return twoPane(left, cur ? <OrderDetail key={cur.id} o={cur} openRun={openRun} onDeleted={() => setSel(null)} /> : null, t);
+  return twoPane(left, cur ? <OrderDetail key={cur.id} o={cur} openRun={openRun} onDeleted={() => setSel(null)} /> : null, t, sel);
 }
 
 function OrderDetail({ o, openRun, onDeleted }: { o: Order; openRun: (id: string) => void; onDeleted: () => void }) {
@@ -429,7 +424,7 @@ export function CustomersScreen({ sel, setSel, openOrder }: { sel: string | null
       </ScrollView>
     </>
   );
-  return twoPane(left, cur ? <CustomerDetail key={cur.id} c={cur} openOrder={openOrder} onDeleted={() => setSel(null)} /> : null, t);
+  return twoPane(left, cur ? <CustomerDetail key={cur.id} c={cur} openOrder={openOrder} onDeleted={() => setSel(null)} /> : null, t, sel);
 }
 
 function CustomerDetail({ c, openOrder, onDeleted }: { c: Customer; openOrder: (id: string) => void; onDeleted: () => void }) {

@@ -57,3 +57,13 @@ export function dayLabel(day: string | null, opts: Intl.DateTimeFormatOptions = 
   const [y, m, d] = day.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('en-US', opts);
 }
+/** "just now", "18 min ago", "3h ago", "yesterday", "4 days ago", "Oct 3" (the prototype's wording) */
+export function ago(ms: number, now = Date.now()) {
+  const d = (now - ms) / 6e4;
+  if (d < 1) return 'just now';
+  if (d < 60) return Math.floor(d) + ' min ago';
+  if (d < 1440) return Math.floor(d / 60) + 'h ago';
+  const dd = Math.floor(d / 1440);
+  return dd === 1 ? 'yesterday' : dd < 7 ? dd + ' days ago' : new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+export const hm = (m: number) => mins(m);

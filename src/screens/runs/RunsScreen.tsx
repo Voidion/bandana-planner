@@ -1,7 +1,7 @@
 /* Runs: plan a batch (sizes, fabric, template, due date), see it on the mats, cut it, work through its steps with
    timers, finish it into stock, and review how it went. */
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { dayLabel, mins, money, money0, plural, relDue, yd } from '../../lib/format';
 import { addDays, computePlan, planCount, rel, runNumbers, sizeReady, todayDay } from '../../lib/plan';
 import {
@@ -18,83 +18,119 @@ import {
   useShop,
 } from '../../state/store';
 import type { Run } from '../../state/types';
-import { ChevIcon, CloseIcon, DefectIcon, PlusIcon, ScissorsIcon, TrashIcon, WarnIcon } from '../../ui/icons';
-import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, showSnack, Stepper, Swatch, T } from '../../ui/kit';
-import { F, R, useTheme } from '../../ui/theme';
-import { CutLayout, InThisRun, MoneyCard, otherCount, shortName, StepRow, Tile } from './parts';
+import { CheckIcon, ChevIcon, CloseIcon, DefectIcon, PlusIcon, RunsIcon, ScissorsIcon, TrashIcon, WarnIcon } from '../../ui/icons';
+import { RunThumb } from '../../ui/Thumbs';
+import { Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, showSnack, Stepper, Swatch, T, TwoPane, useContextMenu } from '../../ui/kit';
+import { F, R, shadow, useTheme } from '../../ui/theme';
+import { CutLayout, InThisRun, MoneyCard, otherCount, shortName, StepRow, StepsBox, Tile } from './parts';
 import { PhotoStrip } from '../PhotosScreen';
 import { ListingSheet } from './ListingSheet';
 import { CutSheet, DefectSheet, FabricPicker, FinishSheet, StepSheet } from './sheets';
 
 type SheetState = null | { k: 'listing' } | { k: 'cut' } | { k: 'step'; id: string } | { k: 'finish' } | { k: 'defect' } | { k: 'pick'; role: 'body' | 'ties' };
 
-export function RunsScreen({ sel, setSel, goSetup }: { sel: string | null; setSel: (id: string | null) => void; goSetup: () => void }) {
+export function RunsScreen({ sel, setSel, goSetup, openWorkflow }: { sel: string | null; setSel: (id: string | null) => void; goSetup: () => void; openWorkflow?: (id: string) => void }) {
   const shop = useShop();
   const t = useTheme();
-  const active = shop.runs.filter(r => r.status === 'active');
-  const drafts = shop.runs.filter(r => r.status === 'draft');
+  const [filter, setFilter] = useState<'bench' | 'done'>(() => (shop.runs.find(r => r.id === sel)?.status === 'done' ? 'done' : 'bench'));
+  const benchList = shop.runs.filter(r => r.status !== 'done');
   const done = shop.runs.filter(r => r.status === 'done').slice().sort((a, b) => (b.finishedAt || '').localeCompare(a.finishedAt || ''));
-  const cur = shop.runs.find(r => r.id === sel) || active[0] || drafts[0] || done[0] || null;
+  const list = filter === 'done' ? done : benchList;
+  const cur = shop.runs.find(r => r.id === sel) || list[0] || benchList[0] || done[0] || null;
   const start = () => setSel(planRun());
-  const row = (r: Run, i: number) => {
-    const body = shop.fabrics.find(f => f.id === r.body);
-    const n = planCount(r);
-    const other = otherCount(r);
-    const d = rel(r.due);
-    const dn = r.steps.filter(s => s.done).length;
-    return (
-      <Row key={r.id} first={i === 0} selected={cur?.id === r.id} onPress={() => setSel(r.id)}
-        menu={[
-          { label: 'Open', onPress: () => setSel(r.id) },
-          r.status === 'draft' ? { label: 'Start this run', onPress: () => startRun(r.id) } : null,
-          { label: 'Plan this again', onPress: () => { const id = planAgain(r.id); if (id) setSel(id); } },
-          { label: 'Delete run', danger: true, onPress: () => { const i2 = shop.runs.findIndex(x => x.id === r.id); deleteRun(r.id); showSnack(`${shortName(r)} deleted`, () => restoreRun(r, i2)); } },
-        ]}>
-        <Swatch color={body ? body.color : t.sunken} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <T style={{ fontWeight: '600' }} numberOfLines={1}>{shortName(r)}</T>
-          <T s="sub" numberOfLines={1}>
-            {n || !other ? plural(n, 'bandana') : plural(other, 'item')}{n && other ? ` + ${other} other` : ''}
-            {r.status === 'active' ? ` · ${dn} of ${r.steps.length} steps` : r.status === 'done' ? ` · ${dayLabel(r.finishedAt, { month: 'short', day: 'numeric' })}` : body ? ' · ' + body.name : ''}
-          </T>
-        </View>
-        {r.status !== 'done' && d != null ? <T s="small" color={d < 0 ? t.danger : t.text3}>{d < 0 ? relDue(d) : dayLabel(r.due, { month: 'short', day: 'numeric' })}</T> : null}
-      </Row>
-    );
-  };
   return (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
-      <View style={{ width: 340, borderRightWidth: 1, borderRightColor: t.line }}>
-        <View style={{ padding: 24, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <T s="title">Runs</T>
-          <Button small title="Plan a run" icon={c => <PlusIcon color={c} size={16} />} onPress={start} />
+    <TwoPane sel={sel} list={
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingTop: 28, paddingHorizontal: 16, paddingBottom: 12, gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+            <Text style={{ fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: -0.6, color: t.text }}>Runs</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Plan a run" onPress={start} style={[{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center' }, shadow(t.dark)]}>
+              <PlusIcon color={t.action} size={20} />
+            </Pressable>
+          </View>
+          <Segmented fill label="Show" bare value={filter} onChange={setFilter} options={[['bench', `On the bench · ${benchList.length}`], ['done', `Finished · ${done.length}`]]} />
         </View>
-        <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 4, gap: 18 }}>
-          {!shop.runs.length ? (
-            <Empty
-              icon={<ScissorsIcon color={t.action} size={26} />}
-              title="Plan your first run"
-              body="A run is a batch of bandanas. Pick sizes and fabric and the app works out yardage, lays the pieces on Cricut mats, and plans the steps and time."
-              action={<Button title="Plan a run" onPress={start} />}
-            />
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 20, gap: 4 }}>
+          {!list.length ? (
+            filter === 'done' ? (
+              <Empty icon={<RunsIcon color={t.action} size={28} />} title="No finished runs yet" body="When you close out a run it moves here with what it made." />
+            ) : (
+              <Empty icon={<RunsIcon color={t.action} size={28} />} title="Nothing on the bench" body="Plan a run and it shows here with its progress and due date." action={<Button small title="Plan a run" onPress={start} />} />
+            )
           ) : null}
-          {active.length ? <Section title={`In progress · ${active.length}`}><Card pad={false} style={{ overflow: 'hidden' }}>{active.map(row)}</Card></Section> : null}
-          {drafts.length ? <Section title={`Drafts · ${drafts.length}`}><Card pad={false} style={{ overflow: 'hidden' }}>{drafts.map(row)}</Card></Section> : null}
-          {done.length ? <Section title={`Finished · ${done.length}`}><Card pad={false} style={{ overflow: 'hidden' }}>{done.map(row)}</Card></Section> : null}
+          {list.map(r => <RunCell key={r.id} r={r} on={cur?.id === r.id} onPress={() => setSel(r.id)} setSel={setSel} />)}
         </ScrollView>
       </View>
-      <View style={{ flex: 1 }}>{cur ? <RunView key={cur.id} r={cur} goSetup={goSetup} setSel={setSel} /> : null}</View>
-    </View>
+    } detail={cur ? <RunView key={cur.id} r={cur} goSetup={goSetup} setSel={setSel} openWorkflow={openWorkflow} /> : (
+        <View style={{ flex: 1, padding: 32, justifyContent: 'center' }}>
+          <Empty icon={<RunsIcon color={t.action} size={30} />} title="Your runs show here" body="When you plan a run, its steps, fabric and cut layout show here." />
+        </View>
+      )} />
   );
 }
 
-function RunView({ r, goSetup, setSel }: { r: Run; goSetup: () => void; setSel: (id: string | null) => void }) {
+/** One run in the list: picture, name, due chip, what's happening, progress */
+function RunCell({ r, on, onPress, setSel }: { r: Run; on: boolean; onPress: () => void; setSel: (id: string | null) => void }) {
+  const shop = useShop();
+  const t = useTheme();
+  const [hover, setHover] = useState(false);
+  const ctx = useContextMenu([
+    { label: 'Open', onPress },
+    r.status === 'draft' ? { label: 'Start this run', onPress: () => startRun(r.id) } : null,
+    { label: 'Plan this again', onPress: () => { const id = planAgain(r.id); if (id) setSel(id); } },
+    { label: 'Delete run', danger: true, onPress: () => { const i2 = shop.runs.findIndex(x => x.id === r.id); deleteRun(r.id); showSnack(`${shortName(r)} deleted`, () => restoreRun(r, i2)); } },
+  ]);
+  const done = r.status === 'done';
+  const pc = planCount(r) + otherCount(r);
+  const dn = r.steps.filter(s => s.done).length;
+  const d = rel(r.due);
+  const purpose = (r.name || '').split(' — ')[1] || '';
+  const m = shop.timer;
+  const live = m && m.run === r.id ? (m.paused ? 'Timer paused' : 'You’re timing') : '';
+  const nums = done ? runNumbers(shop, r) : null;
+  const pay = shop.cfg.payLabor;
+  return (
+    <Pressable {...ctx} accessibilityRole="button" accessibilityState={{ selected: on }} onPress={() => !ctx.wasRight() && onPress()} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)}
+      style={[{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', padding: 12, borderRadius: 16, backgroundColor: on ? t.surface : hover ? (t.dark ? '#1C1C20' : '#EDEDEF') : 'transparent', borderWidth: 2, borderColor: on ? t.action : 'transparent' }, on ? shadow(t.dark) : null]}>
+      <RunThumb r={r} size={44} />
+      <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+          <Text numberOfLines={2} style={{ flex: 1, fontSize: F.f15, fontWeight: '600', color: t.text, paddingTop: 1 }}>{shortName(r)}</Text>
+          {done ? (
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ fontSize: F.f15, fontWeight: '700', color: t.text, fontVariant: ['tabular-nums'] }}>{pay ? money(nums!.perHour) : money0(nums!.profit)}</Text>
+              <Text style={{ fontSize: F.f12, color: t.text3 }}>{pay ? 'an hour' : 'profit'}</Text>
+            </View>
+          ) : (
+            <Chip label={r.status === 'draft' ? 'Draft' : d == null ? 'No date' : d < 0 || d <= 7 ? relDue(d) : dayLabel(r.due)} tone={r.status !== 'draft' && d != null && d < 0 ? 'warn' : 'plain'} />
+          )}
+        </View>
+        <Text numberOfLines={1} style={{ fontSize: F.f13, color: t.text3 }}>{[purpose, plural(pc, 'bandana')].filter(Boolean).join(' · ')}</Text>
+        {live && !done ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: m!.paused ? t.warn : t.success }} />
+            <Text style={{ fontSize: F.f13, fontWeight: '600', color: m!.paused ? t.warn : t.success }}>{live}</Text>
+          </View>
+        ) : (
+          <Text style={{ fontSize: F.f13, color: t.text3 }}>{done ? 'Finished ' + dayLabel(r.finishedAt, { month: 'short', day: 'numeric' }) : r.status === 'draft' ? 'Not started' : `${dn} of ${r.steps.length} steps`}</Text>
+        )}
+        {!done && r.status !== 'draft' ? (
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: t.sunken, overflow: 'hidden', marginTop: 4 }}>
+            <View style={{ height: 6, borderRadius: 3, width: `${(dn / Math.max(1, r.steps.length)) * 100}%`, backgroundColor: t.action }} />
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function RunView({ r, goSetup, setSel, openWorkflow }: { r: Run; goSetup: () => void; setSel: (id: string | null) => void; openWorkflow?: (id: string) => void }) {
   const [sheet, setSheet] = useState<SheetState>(null);
   const close = () => setSheet(null);
   const body = r.status === 'draft' ? (
     <DraftView r={r} goSetup={goSetup} setSel={setSel} setSheet={setSheet} />
   ) : r.status === 'active' ? (
-    <BenchView r={r} setSheet={setSheet} />
+    <BenchView r={r} setSheet={setSheet} openWorkflow={openWorkflow} />
   ) : (
     <ReviewView r={r} setSel={setSel} setSheet={setSheet} />
   );
@@ -134,15 +170,17 @@ function PickFabric({ r, role, onClose }: { r: Run; role: 'body' | 'ties'; onClo
 
 /* ---------- header shared by every state ---------- */
 function Hero({ r, right }: { r: Run; right?: React.ReactNode }) {
-  const shop = useShop();
   const t = useTheme();
-  const body = shop.fabrics.find(f => f.id === r.body);
   const d = rel(r.due);
+  const purpose = (r.name || '').split(' — ')[1] || '';
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-      <Swatch color={body ? body.color : t.sunken} size={64} />
-      <View style={{ flex: 1, gap: 8 }}>
-        <T s="h1" style={{ fontSize: 26 }} numberOfLines={2}>{r.name || 'Untitled run'}</T>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+      <RunThumb r={r} size={72} radius={18} />
+      <View style={{ flex: 1, gap: 8, minWidth: 0 }}>
+        <View style={{ gap: 2 }}>
+          <Text numberOfLines={2} style={{ fontSize: 28, lineHeight: 31, fontWeight: '700', letterSpacing: -0.4, color: t.text }}>{shortName(r)}</Text>
+          {purpose ? <Text style={{ fontSize: F.f15, color: t.text2 }}>{purpose}</Text> : null}
+        </View>
         <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
           <Chip label={r.status === 'draft' ? 'Draft' : r.status === 'active' ? 'In progress' : 'Finished ' + dayLabel(r.finishedAt, { month: 'short', day: 'numeric' })} tone={r.status === 'active' ? 'tint' : r.status === 'done' ? 'ok' : 'plain'} />
           {r.status !== 'done' ? <Chip label={d == null ? 'No date' : d < 0 ? relDue(d) : 'Due ' + dayLabel(r.due)} tone={d != null && d < 0 ? 'warn' : 'plain'} /> : null}
@@ -335,7 +373,7 @@ function StepsSection({ r, setSheet }: { r: Run; setSheet: (s: SheetState) => vo
   const left = r.steps.filter(s => !s.done).reduce((a, s) => a + s.est, 0);
   return (
     <Section title={`Steps · ${dn} of ${r.steps.length}`} right={dn < r.steps.length ? <T s="sub">~{mins(left)} left</T> : undefined}>
-      <Card pad={false} style={{ overflow: 'hidden' }}>
+      <StepsBox>
         {r.steps.map((s, i) => (
           <StepRow key={s.id} r={r} s={s} first={i === 0} onOpen={() => setSheet({ k: 'step', id: s.id })} onCut={() => setSheet({ k: 'cut' })} />
         ))}
@@ -343,18 +381,17 @@ function StepsSection({ r, setSheet }: { r: Run; setSheet: (s: SheetState) => vo
           <PlusIcon color={t.action} size={18} />
           <T color={t.action} style={{ fontWeight: '600' }}>Add a step</T>
         </Pressable>
-      </Card>
+      </StepsBox>
     </Section>
   );
 }
 
 /* ---------- in progress ---------- */
-function BenchView({ r, setSheet }: { r: Run; setSheet: (s: SheetState) => void }) {
+function BenchView({ r, setSheet, openWorkflow }: { r: Run; setSheet: (s: SheetState) => void; openWorkflow?: (id: string) => void }) {
   const shop = useShop();
   const t = useTheme();
   const dn = r.steps.filter(s => s.done).length;
   const left = r.steps.length - dn;
-  const [wide, setWide] = useState(true);
   const fabric = (
     <Section
       title="Fabric"
@@ -400,33 +437,24 @@ function BenchView({ r, setSheet }: { r: Run; setSheet: (s: SheetState) => void 
       ) : null}
     </Section>
   );
-  const leftCol = (
-    <View style={{ flex: wide ? 1 : undefined, alignSelf: wide ? undefined : 'stretch', gap: 22, minWidth: 0 }}>
-      <Section title={`In this run · ${plural(planCount(r), 'bandana')}${otherCount(r) ? ` + ${otherCount(r)} other` : ''}`}><InThisRun r={r} /></Section>
-      <MoneyCard r={r} />
-      {fabric}
-    </View>
-  );
-  const rightCol = (
-    <View style={{ flex: wide ? 1.15 : undefined, alignSelf: wide ? undefined : 'stretch', gap: 22, minWidth: 0 }}>
-      <StepsSection r={r} setSheet={setSheet} />
-      <Field label="Notes" value={r.notes} onChange={v => editRun(r.id, { notes: v })} placeholder="Anything to remember about this run" multiline />
-      <PhotoStrip link={{ run: r.id }} />
-      <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-        <Button kind={left ? 'secondary' : 'primary'} title={left ? `Finish run · ${plural(left, 'step')} left` : 'Finish run'} onPress={() => setSheet({ k: 'finish' })} />
-        <Button kind="secondary" title="Log a defect" icon={c => <DefectIcon color={c} size={16} />} onPress={() => setSheet({ k: 'defect' })} />
-        <Button kind="secondary" title="Shopify listing" onPress={() => setSheet({ k: 'listing' })} />
-      </View>
-    </View>
-  );
   return (
-    <ScrollView contentContainerStyle={{ padding: 32, gap: 22 }} onLayout={e => setWide(e.nativeEvent.layout.width >= 980)}>
-      <Hero r={r} />
-      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 22, alignItems: 'flex-start' }}>
-        {wide ? leftCol : rightCol}
-        {wide ? rightCol : leftCol}
+    <ScrollView contentContainerStyle={{ alignItems: 'center' }}>
+      <View style={{ width: '100%', maxWidth: 820, paddingHorizontal: 32, paddingTop: 32, paddingBottom: 60, gap: 20 }}>
+        <Hero r={r} />
+        <Section title="In this run" right={<T s="sub">{plural(planCount(r), 'bandana')}{otherCount(r) ? ` · ${otherCount(r)} other` : ''}</T>}><InThisRun r={r} /></Section>
+        <StepsSection r={r} setSheet={setSheet} />
+        {openWorkflow ? <T onPress={() => openWorkflow(r.id)} color={t.action} style={{ fontWeight: '600', fontSize: F.f14, alignSelf: 'flex-start', marginTop: -8 }}>Open in Workflow</T> : null}
+        <Button kind={left ? 'secondary' : 'primary'} icon={c => <CheckIcon color={c} size={18} />} title={left ? `Finish run · ${plural(left, 'step')} left` : 'Finish run'} onPress={() => setSheet({ k: 'finish' })} />
+        <MoneyCard r={r} />
+        {fabric}
+        <CutLayout r={r} />
+        <Field label="Notes" value={r.notes} onChange={v => editRun(r.id, { notes: v })} placeholder="Anything to remember about this run" multiline />
+        <PhotoStrip link={{ run: r.id }} />
+        <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+          <Button small kind="secondary" title="Log a defect" icon={c => <DefectIcon color={c} size={16} />} onPress={() => setSheet({ k: 'defect' })} style={{ flex: 1 }} />
+          <Button small kind="secondary" title="Shopify listing" onPress={() => setSheet({ k: 'listing' })} style={{ flex: 1 }} />
+        </View>
       </View>
-      <CutLayout r={r} />
     </ScrollView>
   );
 }

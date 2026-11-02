@@ -5,12 +5,11 @@ import * as E from '../engine/engine';
 import { dayLabel, fmtN, mins, money, money0, pct, plural, relDue } from '../lib/format';
 import { addDays, itemName, rel, schedule, sync, todayDay } from '../lib/plan';
 import { addEvent, addTool, deleteEvent, deleteTool, editEvent, editTool, resetTool, restoreEvent, setGoals, toolDue, unitOf } from '../state/planning';
-import { restockList } from '../state/shelf';
-import { isLate, orderStage, saleOwed, saleProfit } from '../state/selling';
+import { saleOwed, saleProfit } from '../state/selling';
 import { useShop } from '../state/store';
 import type { CalEvent, Sale, Shop, Tool } from '../state/types';
 import { CloseIcon, PlusIcon, TrashIcon } from '../ui/icons';
-import { Bar, Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, Select, showSnack, Swatch, T } from '../ui/kit';
+import { Bar, Button, Card, Chip, Empty, Field, IconButton, NumField, Row, Section, Segmented, Select, showSnack, T } from '../ui/kit';
 import { F, R, useTheme } from '../ui/theme';
 
 type Go = (route: string, id?: string) => void;
@@ -37,112 +36,6 @@ function Bars({ data, height = 120, color, fmt }: { data: { label: string; v: nu
   );
 }
 
-/* ================= Today ================= */
-export function TodayScreen({ go }: { go: Go }) {
-  const shop = useShop();
-  const t = useTheme();
-  const sc = useMemo(() => schedule(shop), [shop]);
-  const wkCap = sc.cap.slice(0, 7).reduce((a, c) => a + c, 0);
-  const wkUsed = sc.used.slice(0, 7).reduce((a, c) => a + c, 0);
-  const month = todayDay().slice(0, 7);
-  const inc = shop.sales.filter(e => e.day.startsWith(month)).reduce((a, e) => a + e.sub - e.refund, 0);
-  const active = shop.runs.filter(r => r.status === 'active');
-  const drafts = shop.runs.filter(r => r.status === 'draft');
-  const needs: { text: string; sub: string; tone: 'warn' | 'bad' | 'tint'; onPress: () => void }[] = [];
-  sc.late.forEach(id => {
-    const r = shop.runs.find(x => x.id === id);
-    if (r) needs.push({ text: `${short(r.name)} is running late`, sub: r.due ? relDue(rel(r.due)) + ' · not enough free hours before then' : '', tone: 'bad', onPress: () => go('runs', r.id) });
-  });
-  shop.orders.filter(o => o.status !== 'delivered' && o.due && (rel(o.due) ?? 99) <= 3).forEach(o => {
-    const c = shop.customers.find(x => x.id === o.cust);
-    needs.push({ text: `${o.title || (c ? c.name : 'An order')} is due ${relDue(rel(o.due)).replace(/^Due /, '').toLowerCase()}`, sub: orderStage(shop, o) === 'ready' ? 'Ready to send' : 'Not ready yet', tone: (rel(o.due) ?? 0) < 0 ? 'bad' : 'warn', onPress: () => go('orders', o.id) });
-  });
-  const late = shop.sales.filter(isLate);
-  if (late.length) needs.push({ text: `${plural(late.length, 'payment')} overdue`, sub: money(late.reduce((a, e) => a + saleOwed(e), 0)) + ' owed', tone: 'bad', onPress: () => go('sales') });
-  const rs = restockList(shop).filter(i => !(i.x.onOrder > 0));
-  if (rs.length) needs.push({ text: `${plural(rs.length, 'thing')} to restock`, sub: rs.slice(0, 3).map(i => i.x.name).join(', '), tone: 'warn', onPress: () => go('restock') });
-  shop.tools.filter(toolDue).forEach(tl => needs.push({ text: `${tl.name} is due`, sub: `${Math.round(tl.uses)} of ${tl.life} ${unitOf(tl)}`, tone: 'warn', onPress: () => go('maintenance') }));
-  shop.quotes.filter(q => q.status === 'sent' && (rel(q.until) ?? 0) < 3).forEach(q => needs.push({ text: `Quote ${q.no} ${(rel(q.until) ?? 0) < 0 ? 'has lapsed' : 'ends soon'}`, sub: q.title || '', tone: 'tint', onPress: () => go('quotes', q.id) }));
-  const nextEv = shop.cal.filter(e => (rel(e.day) ?? -1) >= 0).sort((a, b) => a.day.localeCompare(b.day))[0];
-  return (
-    <ScrollView contentContainerStyle={{ padding: 32, gap: 22, maxWidth: 1040 }}>
-      <View style={{ gap: 2 }}>
-        <T s="title">Today</T>
-        <T s="sub">{dayLabel(todayDay(), { weekday: 'long', month: 'long', day: 'numeric' })}{nextEv ? ` · next: ${nextEv.title} ${dayLabel(nextEv.day, { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}</T>
-      </View>
-      {needs.length ? (
-        <Section title={`Needs you · ${needs.length}`}>
-          <Card pad={false} style={{ overflow: 'hidden' }}>
-            {needs.slice(0, 8).map((n, i) => (
-              <Row key={i} first={i === 0} onPress={n.onPress}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: n.tone === 'bad' ? t.danger : n.tone === 'warn' ? t.warn : t.action }} />
-                <View style={{ flex: 1, gap: 2 }}>
-                  <T style={{ fontWeight: '600' }}>{n.text}</T>
-                  {n.sub ? <T s="sub" numberOfLines={1}>{n.sub}</T> : null}
-                </View>
-              </Row>
-            ))}
-          </Card>
-        </Section>
-      ) : null}
-      <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
-        <Pressable onPress={() => go('schedule')} style={{ flex: 1, minWidth: 280 }}>
-          <Card style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><T style={{ fontWeight: '700' }}>This week</T><T s="sub">{wkCap && wkUsed >= wkCap ? 'Fully booked' : `${mins(wkUsed)} of ${mins(wkCap)} booked`}</T></View>
-            <Bars height={60} color={t.barG} data={sc.cap.slice(0, 7).map((c, i) => ({ label: i ? dayLabel(addDays(todayDay(), i), { weekday: 'narrow' }) : 'Today', v: sc.used[i], v2: c, hi: i === 0 }))} />
-            <T s="small" color={sc.late.length ? t.warn : t.success}>{sc.late.length ? `${plural(sc.late.length, 'run')} running late` : wkCap > wkUsed ? `Everything fits, ${mins(wkCap - wkUsed)} still free` : 'Everything fits'}</T>
-          </Card>
-        </Pressable>
-        <Pressable onPress={() => go('reports')} style={{ flex: 1, minWidth: 280 }}>
-          <Card style={{ gap: 8 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><T style={{ fontWeight: '700' }}>{dayLabel(todayDay(), { month: 'long' })} income</T><T s="sub">{money0(inc)} of {money0(shop.goals.income)}</T></View>
-            <Bar value={inc / Math.max(1, shop.goals.income)} color={inc >= shop.goals.income ? t.success : t.action} />
-            <T s="small">{shop.runs.filter(r => r.status === 'done').length} runs finished · {Object.values(shop.stock).reduce((a, x) => a + x.n, 0)} in stock</T>
-          </Card>
-        </Pressable>
-      </View>
-      <Section title={`In progress · ${active.length}`} right={<Button small kind="ghost" title="All runs" onPress={() => go('runs')} />}>
-        <Card pad={false} style={{ overflow: 'hidden' }}>
-          {active.length ? active.map((r, i) => {
-            const dn = r.steps.filter(s => s.done).length;
-            const fin = sc.finish[r.id];
-            return (
-              <Row key={r.id} first={i === 0} onPress={() => go('runs', r.id)}>
-                <Swatch color={shop.fabrics.find(f => f.id === r.body)?.color || t.sunken} size={32} />
-                <View style={{ flex: 1, gap: 4 }}>
-                  <T style={{ fontWeight: '600' }}>{short(r.name)}</T>
-                  <Bar value={dn / Math.max(1, r.steps.length)} color={t.barG} />
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <T s="sub">{dn} of {r.steps.length}</T>
-                  <T s="small" color={sc.late.includes(r.id) ? t.danger : t.text3}>{fin == null ? 'Doesn’t fit in 8 weeks' : fin === 0 ? 'Done today' : 'Done ' + dayLabel(addDays(todayDay(), fin), { weekday: 'short', month: 'short', day: 'numeric' })}</T>
-                </View>
-              </Row>
-            );
-          }) : <Row first><T s="sub">Nothing in progress.{drafts.length ? ` ${plural(drafts.length, 'draft')} waiting.` : ''}</T></Row>}
-        </Card>
-      </Section>
-      <Section title="Activity" right={<Button small kind="ghost" title="See all" onPress={() => go('activity')} />}>
-        <Card pad={false} style={{ overflow: 'hidden' }}>
-          {shop.activity.slice(0, 5).map((a, i) => (
-            <Row key={i} first={i === 0}>
-              <View style={{ flex: 1 }}><T>{a.who === 'You' ? 'You ' : a.who + ' '}{a.text}</T>{a.sub ? <T s="sub">{a.sub}</T> : null}</View>
-              <T s="small">{when(a.t)}</T>
-            </Row>
-          ))}
-          {!shop.activity.length ? <Row first><T s="sub">What you do shows here.</T></Row> : null}
-        </Card>
-      </Section>
-    </ScrollView>
-  );
-}
-const when = (ms: number) => {
-  const d = new Date(ms),
-    n = new Date();
-  const day = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
-  const tm = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return ms >= day ? tm : ms >= day - 864e5 ? 'Yesterday ' + tm : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
 
 /* ================= Schedule ================= */
 export function ScheduleScreen({ go }: { go: Go }) {
@@ -248,11 +141,11 @@ function periodSales(shop: Shop, per: Per) {
 }
 const perMonths = (per: Per) => (per === 'year' ? new Date().getMonth() + 1 : per === '3m' ? 3 : per === 'month' ? 1 : 12);
 
-export function ReportsScreen() {
-  const [tab, setTab] = useState<'trends' | 'reports' | 'tax' | 'goals'>('trends');
+export function ReportsScreen({ start = 'reports' }: { start?: 'trends' | 'reports' }) {
+  const [tab, setTab] = useState<'trends' | 'reports' | 'tax' | 'goals'>(start);
   return (
     <ScrollView contentContainerStyle={{ padding: 32, gap: 22, maxWidth: 1040 }}>
-      <T s="title">Reports</T>
+      <T s="title">{tab === 'trends' ? 'Trends' : 'Reports'}</T>
       <Segmented label="Reports" bare value={tab} onChange={setTab} options={[['trends', 'Trends'], ['reports', 'Sales and profit'], ['tax', 'Tax summary'], ['goals', 'Goals']]} />
       {tab === 'trends' ? <Trends /> : tab === 'reports' ? <Reports /> : tab === 'tax' ? <Tax /> : <Goals />}
     </ScrollView>

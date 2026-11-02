@@ -21,7 +21,7 @@ import {
 import { useShop } from '../state/store';
 import type { Supply } from '../state/types';
 import { BoxIcon, PlusIcon, TrashIcon, WarnIcon } from '../ui/icons';
-import { Bar, Button, Card, Chip, Empty, Field, NumField, Row, Section, Select, Sheet, showSnack, Swatch, T } from '../ui/kit';
+import { Bar, Button, Card, Chip, Empty, Field, NumField, Row, Section, Select, Sheet, showSnack, Swatch, T, TwoPane } from '../ui/kit';
 import { R, useTheme } from '../ui/theme';
 
 /** Pick a supplier, or add a new one on the spot */
@@ -52,12 +52,7 @@ const openSite = (url: string) => {
   Linking.openURL(u).catch(() => showSnack('Couldn’t open that link.'));
 };
 
-const twoPane = (left: React.ReactNode, right: React.ReactNode, t: any) => (
-  <View style={{ flex: 1, flexDirection: 'row' }}>
-    <View style={{ width: 360, borderRightWidth: 1, borderRightColor: t.line }}>{left}</View>
-    <View style={{ flex: 1 }}>{right}</View>
-  </View>
-);
+const twoPane = (left: React.ReactNode, right: React.ReactNode, _t: any, sel?: string | null) => <TwoPane list={left} detail={right} sel={sel} />;
 
 /* ---------- supplies ---------- */
 const USE: [Supply['use'], string, string][] = [
@@ -107,7 +102,7 @@ export function SuppliesScreen({ sel, setSel }: { sel: string | null; setSel: (i
       </ScrollView>
     </>
   );
-  return twoPane(left, cur ? <SupplyDetail key={cur.id} x={cur} onDeleted={() => setSel(null)} /> : null, t);
+  return twoPane(left, cur ? <SupplyDetail key={cur.id} x={cur} onDeleted={() => setSel(null)} /> : null, t, sel);
 }
 
 function SupplyDetail({ x, onDeleted }: { x: Supply; onDeleted: () => void }) {
