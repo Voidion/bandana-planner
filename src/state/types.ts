@@ -532,6 +532,8 @@ export interface Shop {
     ship: { threshold: number; charge: number; cost: number };
     /** Light, dark, or follow Windows */
     theme: 'system' | 'light' | 'dark';
+    /** Windows notifications for reminders */
+    remind: { on: boolean; hour: number; orders: boolean; payments: boolean; restock: boolean; timer: boolean; tools: boolean; quotes: boolean };
     /** What every quote says: how to reach you, how to pay, and your notes */
     quote: { email: string; phone: string; insta: string; site: string; pay: string; notes: string[]; holdDays: number };
   };
@@ -547,6 +549,8 @@ export interface Shop {
   tools: Tool[];
   photos: Photo[];
   albums: Album[];
+  /** Reminders already sent (key → day), so each is sent once */
+  notified: Record<string, Day>;
   goals: { income: number; hours: number };
   usage: UsageLine[];
   products: Product[];

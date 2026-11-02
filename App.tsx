@@ -20,6 +20,7 @@ import { freeStock, isLate, orderStage, saleOwed } from './src/state/selling';
 import { restockList } from './src/state/shelf';
 import { toolDue } from './src/state/planning';
 import { purgeOld } from './src/state/photos';
+import { sendReminders } from './src/state/reminders';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
 import { PhotoIcon, PlusIcon, SearchIcon, BatchesIcon, BoxIcon, CalIcon, CartIcon, ChartIcon, ClockIcon, EditIcon, HomeIcon, TruckIcon, WrenchIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
 import { Button, showSnack, SnackBar, T } from './src/ui/kit';
@@ -71,13 +72,18 @@ export default function App() {
       () => {
         purgeOld();
         setReady('ok');
+        sendReminders();
       },
       () => setReady('error'),
     );
   };
   useEffect(() => {
     load();
+    const id = setInterval(() => {
+      sendReminders().catch(() => {});
+    }, 60000);
     return () => {
+      clearInterval(id);
       flush();
     };
   }, []);

@@ -126,6 +126,28 @@ export function ShopSettings() {
         <Field label="Shop name" value={shop.shopName} onChange={v => update(s => ({ ...s, shopName: v }))} />
         <Segmented label="Appearance" value={shop.cfg.theme} onChange={v => update(s => ({ ...s, cfg: { ...s.cfg, theme: v } }))} options={[['system', 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']]} />
       </Card>
+      <Section title="Reminders">
+        <Card style={{ gap: 12 }}>
+          <Segmented label="Windows notifications" value={shop.cfg.remind.on ? 'on' : 'off'} onChange={v => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, on: v === 'on' } } }))} options={[['on', 'On'], ['off', 'Off']]} />
+          {shop.cfg.remind.on ? (
+            <>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {([['orders', 'Orders due'], ['payments', 'Overdue payments'], ['restock', 'Restock'], ['timer', 'Timer left running'], ['tools', 'Tools due'], ['quotes', 'Quotes ending']] as const).map(([k, l]) => {
+                  const on = shop.cfg.remind[k];
+                  return (
+                    <Pressable key={k} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, [k]: !on } } }))} style={{ paddingHorizontal: 12, minHeight: 32, justifyContent: 'center', borderRadius: R.chip, backgroundColor: on ? t.tint : t.sunken }}>
+                      <T style={{ fontSize: F.f14, fontWeight: '600' }} color={on ? t.onTint : t.text2}>{on ? '✓ ' : ''}{l}</T>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Segmented label="Daily reminders from" value={String(shop.cfg.remind.hour)} onChange={v => update(s => ({ ...s, cfg: { ...s.cfg, remind: { ...s.cfg.remind, hour: +v } } }))} options={[['7', '7 am'], ['9', '9 am'], ['12', 'Noon'], ['17', '5 pm']]} />
+              <T s="small">While Bandana Planner is open, each reminder is sent once. The timer one comes whenever a timer passes your check-in time. Today’s “Needs you” list shows the same things.</T>
+            </>
+          ) : null}
+        </Card>
+      </Section>
+
       <Section title="Keyboard shortcuts">
         <Card pad={false} style={{ overflow: 'hidden' }}>
           {SHORTCUTS.map(([k, v], i) => (

@@ -13,6 +13,7 @@ type FilesModule = {
   openTextFile(title: string, kind: string, pattern: string): Promise<string>;
   openPath?(path: string): Promise<boolean>;
   pickPhotos?(): Promise<string>;
+  notify?(title: string, body: string): Promise<boolean>;
   deleteFile?(path: string): Promise<boolean>;
   copyFiles?(paths: string[], folder: string): Promise<string>;
 };
@@ -154,4 +155,10 @@ export async function exportPhotos(srcs: string[], folder: string): Promise<stri
 
 export async function dataFolderPath(): Promise<string | null> {
   return files ? files.dataFolder() : null;
+}
+
+/** A Windows notification. In the browser preview it does nothing. */
+export async function notify(title: string, body: string): Promise<boolean> {
+  if (files && files.notify) return files.notify(title, body);
+  return false;
 }

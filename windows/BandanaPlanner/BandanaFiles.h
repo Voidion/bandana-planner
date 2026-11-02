@@ -7,6 +7,7 @@
 //   pickPhotos()                    -> Open dialog for pictures (several at once); copies each into the photos folder
 //                                      and returns [{"path","name","bytes"}] as JSON ("[]" if cancelled)
 //   deleteFile(path)                -> removes a photo file for good (only inside the photos folder)
+//   notify(title, body)             -> a Windows notification (reminders)
 //   copyFiles(paths, folder)        -> copies files into Documents\Bandana Planner\<folder>, returns the folder
 //   dataFolder()                    -> the folder shop.json lives in
 //   openTextFile(title, kind, pattern) -> shows Windows' Open dialog; returns {"name","path","text"} as JSON, or "" if cancelled
@@ -14,6 +15,9 @@
 
 #include "pch.h"
 #include "NativeModules.h"
+
+#include <winrt/Microsoft.Windows.AppNotifications.h>
+#include <winrt/Microsoft.Windows.AppNotifications.Builder.h>
 
 #include <ShlObj.h>
 #include <shellapi.h>
@@ -333,6 +337,23 @@ struct BandanaFiles {
       promise.Resolve(Narrow(dir.wstring()));
     } catch (...) {
       promise.Reject(L"Couldn't copy the photos");
+    }
+  }
+
+  REACT_METHOD(Notify, L"notify")
+  void Notify(std::string title, std::string body, winrt::Microsoft::ReactNative::ReactPromise<bool> promise) noexcept {
+    try {
+      namespace AN = winrt::Microsoft::Windows::AppNotifications;
+      static bool registered = false;
+      if (!registered) {
+        AN::AppNotificationManager::Default().Register();
+        registered = true;
+      }
+      auto note = AN::Builder::AppNotificationBuilder().AddText(winrt::hstring(Widen(title))).AddText(winrt::hstring(Widen(body))).BuildNotification();
+      AN::AppNotificationManager::Default().Show(note);
+      promise.Resolve(true);
+    } catch (...) {
+      promise.Resolve(false);
     }
   }
 
