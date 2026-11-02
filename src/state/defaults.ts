@@ -74,6 +74,7 @@ export function emptyShop(): Shop {
       round: 0.5,
       payLabor: false,
       ship: { threshold: 50, charge: 4.5, cost: 5.2 },
+      theme: 'system',
       quote: { email: '', phone: '', insta: '', site: '', pay: '', notes: ['Every bandana is cut and sewn by hand, so pattern placement varies a little from piece to piece.'], holdDays: 30 },
     },
     suppliers: [],

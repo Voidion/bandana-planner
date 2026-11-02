@@ -10,17 +10,18 @@ import { Button, Card, Chip, Field, IconButton, NumField, Row, Section, Segmente
 import { F, R, useTheme } from '../ui/theme';
 import { useNow } from '../ui/useNow';
 import { SetupScreen } from './SetupScreen';
+import { ShopSettings } from './AppWide';
 import { ProductsSettings } from './ProductsSettings';
 import { PricingSettings } from './PricingSettings';
 
-export type SettingsTab = 'sizes' | 'products' | 'pricing' | 'templates' | 'hours' | 'timers';
+export type SettingsTab = 'shop' | 'sizes' | 'products' | 'pricing' | 'templates' | 'hours' | 'timers';
 
 export function SettingsScreen({ tab, setTab, openRun }: { tab: SettingsTab; setTab: (t: SettingsTab) => void; openRun: (id: string) => void }) {
   return (
     <ScrollView contentContainerStyle={{ padding: 32, gap: 22, maxWidth: 1040 }}>
       <T s="title">Settings</T>
-      <Segmented label="Settings" bare value={tab} onChange={setTab} options={[['sizes', 'Sizes & mats'], ['products', 'Products'], ['pricing', 'Pricing'], ['templates', 'Templates'], ['hours', 'Free hours'], ['timers', 'Timers']]} />
-      {tab === 'sizes' ? <SetupScreen /> : tab === 'products' ? <ProductsSettings /> : tab === 'pricing' ? <PricingSettings /> : tab === 'templates' ? <Templates /> : tab === 'hours' ? <Hours /> : <Timers openRun={openRun} />}
+      <Segmented label="Settings" bare value={tab} onChange={setTab} options={[['shop', 'Shop'], ['sizes', 'Sizes & mats'], ['products', 'Products'], ['pricing', 'Pricing'], ['templates', 'Templates'], ['hours', 'Free hours'], ['timers', 'Timers']]} />
+      {tab === 'shop' ? <ShopSettings /> : tab === 'sizes' ? <SetupScreen /> : tab === 'products' ? <ProductsSettings /> : tab === 'pricing' ? <PricingSettings /> : tab === 'templates' ? <Templates /> : tab === 'hours' ? <Hours /> : <Timers openRun={openRun} />}
     </ScrollView>
   );
 }

@@ -167,10 +167,10 @@ function PaySheet({ e, onClose }: { e: Sale; onClose: () => void }) {
   );
 }
 
-export function SalesScreen() {
+export function SalesScreen({ autoRecord }: { autoRecord?: boolean }) {
   const shop = useShop();
   const t = useTheme();
-  const [rec, setRec] = useState(false);
+  const [rec, setRec] = useState(!!autoRecord);
   const [payFor, setPayFor] = useState<Sale | null>(null);
   const [f, setF] = useState<'all' | 'owed'>('all');
   const [imp, setImp] = useState(false);

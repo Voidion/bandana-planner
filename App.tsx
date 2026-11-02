@@ -14,13 +14,14 @@ import { CustomersScreen, OrdersScreen, SalesScreen } from './src/screens/Sellin
 import { QuotesScreen } from './src/screens/QuotesScreen';
 import { MarketScreen } from './src/screens/MarketScreen';
 import { PhotosScreen } from './src/screens/PhotosScreen';
+import { handleKey, NewMenu, SearchSheet } from './src/screens/AppWide';
 import { ActivityScreen, MaintenanceScreen, ReportsScreen, ScheduleScreen, TodayScreen } from './src/screens/NumbersScreens';
 import { freeStock, isLate, orderStage, saleOwed } from './src/state/selling';
 import { restockList } from './src/state/shelf';
 import { toolDue } from './src/state/planning';
 import { purgeOld } from './src/state/photos';
 import { closeOutTimer, flush, loadShop, planRun, restoreTimer, stockBySize, update, useSaveState, useShop } from './src/state/store';
-import { PhotoIcon, BatchesIcon, BoxIcon, CalIcon, CartIcon, ChartIcon, ClockIcon, EditIcon, HomeIcon, TruckIcon, WrenchIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
+import { PhotoIcon, PlusIcon, SearchIcon, BatchesIcon, BoxIcon, CalIcon, CartIcon, ChartIcon, ClockIcon, EditIcon, HomeIcon, TruckIcon, WrenchIcon, FabricIcon, GearIcon, PeopleIcon, RestockIcon, ScissorsIcon, SpoolIcon, StoreIcon, TagIcon } from './src/ui/icons';
 import { Button, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
@@ -38,10 +39,15 @@ export default function App() {
   const [ordSel, setOrdSel] = useState<string | null>(null);
   const [custSel, setCustSel] = useState<string | null>(null);
   const [quoteSel, setQuoteSel] = useState<string | null>(null);
+  const [overlay, setOverlay] = useState<null | 'search' | 'new'>(null);
+  const [saleKey, setSaleKey] = useState(0);
   const go = (r: string, id?: string) => {
     if (r === 'runs' && id) return openRun(id);
     if (r === 'orders' && id) return openOrder(id);
     if (r === 'fabric' && id) return openFabric(id);
+    if (r === 'customers' && id) setCustSel(id);
+    if (r === 'supplies' && id) setSupSel(id);
+    if (r === 'sales' && id === 'record') setSaleKey(k => k + 1);
     if (r === 'quotes' && id) setQuoteSel(id);
     if (r === 'settings' && id) setSetTab(id as SettingsTab);
     setRoute(r as Route);
@@ -91,10 +97,15 @@ export default function App() {
   }
   if (ready === 'loading') return <View style={{ flex: 1, backgroundColor: t.bg }} />;
 
+  const keys = (e: any) => {
+    const used = handleKey(e, { search: () => setOverlay('search'), newMenu: () => setOverlay('new'), go, close: () => (overlay ? (setOverlay(null), true) : false) });
+    if (used && e?.preventDefault) e.preventDefault();
+  };
+  const rootKeys: any = { onKeyDownCapture: keys };
   return (
-    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: t.bg }}>
+    <View {...rootKeys} style={{ flex: 1, flexDirection: 'row', backgroundColor: t.bg }}>
       <StatusBar barStyle={t.dark ? 'light-content' : 'dark-content'} />
-      <Sidebar route={route} setRoute={setRoute} openRun={openRun} />
+      <Sidebar route={route} setRoute={setRoute} openRun={openRun} onSearch={() => setOverlay('search')} onNew={() => setOverlay('new')} />
       <View style={{ flex: 1, backgroundColor: t.bg }}>
         <StaleTimer openRun={openRun} />
         <View style={{ flex: 1 }}>
@@ -121,7 +132,7 @@ export default function App() {
           ) : route === 'market' ? (
             <MarketScreen />
           ) : route === 'sales' ? (
-            <SalesScreen />
+            <SalesScreen key={saleKey} autoRecord={saleKey > 0} />
           ) : route === 'customers' ? (
             <CustomersScreen sel={custSel} setSel={setCustSel} openOrder={openOrder} />
           ) : route === 'supplies' ? (
@@ -137,6 +148,8 @@ export default function App() {
           )}
         </View>
       </View>
+      {overlay === 'search' ? <SearchSheet onClose={() => setOverlay(null)} go={go} /> : null}
+      {overlay === 'new' ? <NewMenu onClose={() => setOverlay(null)} go={go} /> : null}
       <SnackBar />
     </View>
   );
@@ -176,7 +189,7 @@ function StaleTimer({ openRun }: { openRun: (id: string) => void }) {
   );
 }
 
-function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Route) => void; openRun: (id: string) => void }) {
+function Sidebar({ route, setRoute, openRun, onSearch, onNew }: { route: Route; setRoute: (r: Route) => void; openRun: (id: string) => void; onSearch: () => void; onNew: () => void }) {
   const t = useTheme();
   const shop = useShop();
   const save = useSaveState();
@@ -197,6 +210,16 @@ function Sidebar({ route, setRoute, openRun }: { route: Route; setRoute: (r: Rou
           <BatchesIcon color={t.onAction} size={17} />
         </View>
         <T style={{ fontWeight: '700', fontSize: 16 }}>Bandana Planner</T>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 4, marginBottom: 10 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="New (Ctrl+N)" onPress={onNew} style={{ flex: 1, minHeight: 34, borderRadius: 10, backgroundColor: t.action, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <PlusIcon color={t.onAction} size={15} />
+          <Text style={{ color: t.onAction, fontWeight: '700', fontSize: F.f14 }}>New</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Search (Ctrl+K)" onPress={onSearch} style={{ flex: 1, minHeight: 34, borderRadius: 10, backgroundColor: t.sunken, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <SearchIcon color={t.text2} size={15} />
+          <Text style={{ color: t.text2, fontWeight: '600', fontSize: F.f14 }}>Search</Text>
+        </Pressable>
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 2 }}>
       {item('today', 'Today', c => <HomeIcon color={c} />)}

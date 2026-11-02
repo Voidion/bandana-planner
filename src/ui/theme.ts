@@ -1,5 +1,7 @@
 /* Colours and sizes, matching the prototype's light and dark themes. */
 import { useColorScheme } from 'react-native';
+import { useSyncExternalStore } from 'react';
+import { getShop, subscribe } from '../state/store';
 
 const light = {
   bg: '#F4F4F5',
@@ -64,7 +66,9 @@ const dark: typeof light = {
 export type Theme = typeof light;
 
 export function useTheme(): Theme {
-  return useColorScheme() === 'dark' ? dark : light;
+  const sys = useColorScheme();
+  const pref = useSyncExternalStore(subscribe, () => getShop().cfg.theme || 'system', () => 'system');
+  return (pref === 'system' ? sys === 'dark' : pref === 'dark') ? dark : light;
 }
 
 export const F = { f12: 12, f13: 13, f14: 14, f15: 15, f16: 16, f18: 18, f22: 22, f28: 28, f34: 34 };

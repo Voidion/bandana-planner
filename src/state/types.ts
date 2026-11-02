@@ -530,6 +530,8 @@ export interface Shop {
     payLabor: boolean;
     /** Free shipping over `threshold`; otherwise charge `charge`. `cost` is what a label costs you. */
     ship: { threshold: number; charge: number; cost: number };
+    /** Light, dark, or follow Windows */
+    theme: 'system' | 'light' | 'dark';
     /** What every quote says: how to reach you, how to pay, and your notes */
     quote: { email: string; phone: string; insta: string; site: string; pay: string; notes: string[]; holdDays: number };
   };

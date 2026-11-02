@@ -151,3 +151,7 @@ export async function exportPhotos(srcs: string[], folder: string): Promise<stri
   if (ps.length && files && files.copyFiles) return files.copyFiles(ps, folder);
   return null;
 }
+
+export async function dataFolderPath(): Promise<string | null> {
+  return files ? files.dataFolder() : null;
+}
