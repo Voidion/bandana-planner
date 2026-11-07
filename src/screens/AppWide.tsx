@@ -1,7 +1,7 @@
 /* App-wide: search everything, the New menu, keyboard shortcuts, and Settings › Shop. */
 import { REM_KINDS } from '../state/alerts';
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { money, plural, yd } from '../lib/format';
 import { itemName } from '../lib/plan';
 import { addPhotos } from '../state/photos';
@@ -12,7 +12,7 @@ import { addSupply } from '../state/shelf';
 import { dataFolderPath, onDevice, openPath } from '../state/storage';
 import { addFabric, planRun, update, useShop } from '../state/store';
 import { BoxIcon, CalIcon, CartIcon, EditIcon, FabricIcon, PeopleIcon, PhotoIcon, ScissorsIcon, SearchIcon, SpoolIcon, TagIcon } from '../ui/icons';
-import { Button, Card, Field, Row, Section, Segmented, Sheet, T } from '../ui/kit';
+import { Button, Card, closeTopSheet, Field, Row, Section, Segmented, Sheet, T } from '../ui/kit';
 import { F, R, useTheme } from '../ui/theme';
 
 type Go = (route: string, id?: string) => void;
@@ -40,7 +40,7 @@ const NAV: Record<string, string> = { '1': 'today', '2': 'runs', '3': 'workflow'
 export function handleKey(e: any, a: { search: () => void; newMenu: () => void; go: Go; close: () => boolean; split?: () => void }) {
   const k = String(e?.nativeEvent?.key || '').toLowerCase();
   const ctrl = !!(e?.nativeEvent?.ctrlKey || e?.nativeEvent?.metaKey);
-  if (k === 'escape') return a.close();
+  if (k === 'escape') return closeTopSheet() || a.close();
   if (k === 'f1') return a.go('settings', 'help'), true;
   if (!ctrl) return false;
   if (k === 'k' || k === 'f') return a.search(), true;
@@ -51,6 +51,11 @@ export function handleKey(e: any, a: { search: () => void; newMenu: () => void; 
 }
 
 /* ---------- search ---------- */
+const JUMP: [string, string, string?][] = [
+  ['Today', 'today'], ['Runs', 'runs'], ['Workflow', 'workflow'], ['Schedule', 'schedule'], ['Orders', 'orders'], ['Quotes', 'quotes'], ['Customers', 'customers'],
+  ['Payments', 'sales'], ['Finished stock', 'stock'], ['Market day', 'market'], ['Fabric & supplies', 'fabric'], ['Restock', 'restock'], ['Photos', 'photos'], ['Trends', 'trends'],
+  ['Reports', 'reports'], ['Maintenance', 'maintenance'], ['Activity', 'activity'], ['Settings', 'settings'], ['Help & tour', 'settings', 'help'],
+];
 export function SearchSheet({ onClose, go }: { onClose: () => void; go: Go }) {
   const shop = useShop();
   const t = useTheme();
@@ -60,6 +65,7 @@ export function SearchSheet({ onClose, go }: { onClose: () => void; go: Go }) {
     if (!s) return [];
     const has = (...xs: (string | undefined | null)[]) => xs.some(x => x && x.toLowerCase().includes(s));
     const out: { kind: string; title: string; sub: string; go: () => void }[] = [];
+    JUMP.filter(([l]) => has(l)).forEach(([l, r, id]) => out.push({ kind: 'Go to', title: l, sub: '', go: () => go(r, id) }));
     shop.runs.filter(r => has(r.name)).forEach(r => out.push({ kind: 'Run', title: (r.name || 'Untitled run').split(' — ')[0], sub: r.status === 'done' ? 'Finished' : r.status === 'active' ? 'In progress' : 'Draft', go: () => go('runs', r.id) }));
     shop.fabrics.filter(f => has(f.name, f.notes, f.from)).forEach(f => out.push({ kind: f.offcut ? 'Offcut' : 'Fabric', title: f.name, sub: yd(f.yards) + ' on the shelf', go: () => go('fabric', f.id) }));
     shop.orders.filter(o => has(o.title, o.src, o.notes, shop.customers.find(c => c.id === o.cust)?.name)).forEach(o => out.push({ kind: 'Order', title: o.title || shop.customers.find(c => c.id === o.cust)?.name || 'Order', sub: orderLabel(shop, o), go: () => go('orders', o.id) }));
@@ -74,10 +80,22 @@ export function SearchSheet({ onClose, go }: { onClose: () => void; go: Go }) {
     <Sheet title="Search" onClose={onClose} width={620}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: t.bg, borderRadius: R.control, borderWidth: 2, borderColor: t.action, paddingHorizontal: 10 }}>
         <SearchIcon color={t.text3} size={18} />
-        <TextInput autoFocus value={q} onChangeText={setQ} placeholder="Runs, fabric, orders, customers, dogs…" placeholderTextColor={t.text3} accessibilityLabel="Search" style={{ flex: 1, minHeight: 42, color: t.text, fontSize: F.f16 }} onSubmitEditing={() => res[0] && (onClose(), res[0].go())} />
+        <TextInput autoFocus value={q} onChangeText={setQ} placeholder="Runs, fabric, orders, customers, dogs…" placeholderTextColor={t.text3} accessibilityLabel="Search" style={{ flex: 1, minHeight: 42, color: t.text, fontSize: F.f16, outlineStyle: 'none' } as any} onSubmitEditing={() => res[0] && (onClose(), res[0].go())} />
       </View>
       <ScrollView style={{ maxHeight: 440 }}>
         {q.trim() && !res.length ? <T s="sub">Nothing matches “{q.trim()}”.</T> : null}
+        {!q.trim() ? (
+          <View style={{ gap: 8 }}>
+            <T s="label">Jump to</T>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {JUMP.map(([l, r, id]) => (
+                <Pressable key={l} accessibilityRole="button" onPress={() => { onClose(); go(r, id); }} style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 14, borderRadius: 20, justifyContent: 'center', backgroundColor: pressed ? t.sunken : t.bg })}>
+                  <Text style={{ fontSize: F.f14, fontWeight: '600', color: t.text2 }}>{l}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
         <View style={{ backgroundColor: t.bg, borderRadius: R.card, overflow: 'hidden' }}>
           {res.map((r, i) => (
             <Row key={i} first={i === 0} onPress={() => { onClose(); r.go(); }}>

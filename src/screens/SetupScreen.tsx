@@ -28,22 +28,22 @@ export function SetupScreen({ part }: { part?: SetupPart } = {}) {
       <Section title="Bandana sizes" right={<T s="small">Inches · 10 1/2 or 10.5 both work</T>}>
         <Card pad={false} style={{ overflow: 'hidden' }}>
           <Row first style={{ minHeight: 36, paddingVertical: 6 }}>
-            <T s="label" style={{ width: 120 }}>Name</T>
-            <T s="label" style={{ width: 100 }}>Wide edge</T>
-            <T s="label" style={{ width: 100 }}>Tip length</T>
-            <T s="label" style={{ width: 92 }}>Price</T>
-            <T s="label" style={{ width: 96 }}>Time each</T>
+            <T s="label" style={{ width: 104 }}>Name</T>
+            <T s="label" style={{ width: 84 }}>Wide edge</T>
+            <T s="label" style={{ width: 84 }}>Tip length</T>
+            <T s="label" style={{ width: 80 }}>Price</T>
+            <T s="label" style={{ width: 84 }}>Time each</T>
             <T s="label" style={{ flex: 1 }}>Strap</T>
           </Row>
           {Object.entries(shop.sizes).map(([k, z]) => (
             <Row key={k}>
-              <View style={{ width: 120 }}><Field bare label={`${k} name`} value={z.name} onChange={v => setSize(k, { name: v })} width={108} /></View>
-              <View style={{ width: 100 }}>{z.file ? <T s="sub" style={{ paddingLeft: 4 }}>{inch(z.cw)} file</T> : <NumField bare label={`${z.name} wide edge`} value={z.cw} onChange={n => setSize(k, { cw: n })} suffix="in" width={88} placeholder="–" />}</View>
-              <View style={{ width: 100 }}>{z.file ? <T s="sub" style={{ paddingLeft: 4 }}>{inch(z.cl)} file</T> : <NumField bare label={`${z.name} tip length`} value={z.cl} onChange={n => setSize(k, { cl: n })} suffix="in" width={88} placeholder="–" />}</View>
-              <View style={{ width: 92 }}><NumField bare label={`${z.name} price`} value={z.price} onChange={n => setSize(k, { price: n })} prefix="$" width={80} placeholder="–" /></View>
-              <View style={{ width: 96 }}><NumField bare label={`${z.name} minutes each`} value={z.mins} onChange={n => setSize(k, { mins: n })} suffix="min" width={84} placeholder="–" /></View>
+              <View style={{ width: 104 }}><Field bare label={`${k} name`} value={z.name} onChange={v => setSize(k, { name: v })} width={96} /></View>
+              <View style={{ width: 84 }}>{z.file ? <T s="sub" style={{ paddingLeft: 4 }}>{inch(z.cw)} file</T> : <NumField bare label={`${z.name} wide edge`} value={z.cw} onChange={n => setSize(k, { cw: n })} suffix="in" width={76} placeholder="–" />}</View>
+              <View style={{ width: 84 }}>{z.file ? <T s="sub" style={{ paddingLeft: 4 }}>{inch(z.cl)} file</T> : <NumField bare label={`${z.name} tip length`} value={z.cl} onChange={n => setSize(k, { cl: n })} suffix="in" width={76} placeholder="–" />}</View>
+              <View style={{ width: 80 }}><NumField bare label={`${z.name} price`} value={z.price} onChange={n => setSize(k, { price: n })} prefix="$" width={72} placeholder="–" /></View>
+              <View style={{ width: 84 }}><NumField bare label={`${z.name} minutes each`} value={z.mins} onChange={n => setSize(k, { mins: n })} suffix="min" width={76} placeholder="–" /></View>
               <View style={{ flex: 1 }}>
-                <Select label={`${z.name} strap`} value={z.strap} options={shop.straps.map(s => [s.id, s.name, `${inch(s.w)} × ${inch(s.l)}`] as [string, string, string])} onChange={v => setSize(k, { strap: v })} width={128} />
+                <Select label={`${z.name} strap`} value={z.strap} options={shop.straps.map(s => [s.id, s.name, `${inch(s.w)} × ${inch(s.l)}`] as [string, string, string])} onChange={v => setSize(k, { strap: v })} width={124} />
               </View>
             </Row>
           ))}

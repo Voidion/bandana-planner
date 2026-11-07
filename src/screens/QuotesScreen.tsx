@@ -302,7 +302,10 @@ function QuoteEditor({ q, openOrder, openCustomer, onDeleted }: { q: Quote; open
             </View>
           ))}
         </View>
-        <Note>After {shop.cfg.fees.on ? money(tt.fees) + ' in card fees, ' : ''}{money(tt.over)} toward bills{tt.label ? ` and a ${money(tt.label)} label${tt.ship ? `, less the ${money(tt.ship)} shipping they pay` : ''}` : ''}.</Note>
+        {(() => {
+          const parts = [shop.cfg.fees.on && tt.fees ? `${money(tt.fees)} in card fees` : '', tt.over ? `${money(tt.over)} toward bills` : '', tt.label ? `a ${money(tt.label)} label${tt.ship ? `, less the ${money(tt.ship)} shipping they pay` : ''}` : ''].filter(Boolean);
+          return parts.length ? <Note>After {parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]}.</Note> : null;
+        })()}
       </Sect>
       {tt.dead && edit ? (
         <OStat tone="warn" title="In the free-shipping dead zone." sub={`This order nets less than one just under ${money(shop.cfg.ship.threshold)}, because shipping stops being charged.`} />

@@ -152,7 +152,7 @@ export function ReportsScreen({ go }: { go?: (r: string, id?: string) => void })
           {line('Materials', '−' + money(s.mat))}
           {s.costs ? line('Market booth and miles', '−' + money(s.costs)) : null}
           {line('Profit', money(s.profit), { b: true })}
-          {line(`Bills, ${plural(perMonths(per), 'month')}`, '−' + money(bills))}
+          {bills ? line(`Bills, ${plural(perMonths(per), 'month')}`, '−' + money(bills)) : line('Bills', 'None added')}
           {line('Profit after bills', money(after), { b: true, c: after >= 0 ? t.success : t.danger })}
         </WList>
         <Note style={{ paddingHorizontal: 0 }}>Average sale {money(s.n ? s.sales / s.n : 0)}, {money(s.units ? s.profit / s.units : 0)} profit a bandana. Sales leave out shipping and sales tax.</Note>

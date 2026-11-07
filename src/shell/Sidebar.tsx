@@ -1,7 +1,7 @@
 /* The prototype's desktop navigation: a full sidebar (grouped, with badges, the dark timer card, New and your card),
    or an icon rail on Today, Runs and Schedule and on narrow windows. "More" slides the full sidebar over the content. */
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { clock, mins } from '../lib/format';
 import { timerMs } from '../lib/plan';
 import { alertsNow, leftMins, unseenCount } from '../state/alerts';
@@ -265,6 +265,8 @@ export function Rail(p: NavProps & { onMore: () => void }) {
   useNow(!!m && !m.paused);
   const tr = m && shop.runs.find(x => x.id === m.run);
   const ts = tr && tr.steps.find(x => x.id === m!.step);
+  // On a short window the rail's timer is just the clock (it opens Workflow), so every nav button still fits
+  const short = useWindowDimensions().height < 860;
   const dot = (bd: Badge) => (bd ? <View pointerEvents="none" style={{ position: 'absolute', top: 3, right: 10, width: 9, height: 9, borderRadius: 5, backgroundColor: bd.tone === 'live' ? t.success : bd.tone === 'warn' ? t.barA : t.action, borderWidth: 2, borderColor: t.surface }} /> : null);
   return (
     <View style={{ width: 80, backgroundColor: t.surface, borderRightWidth: 1, borderRightColor: t.line, paddingTop: 16, paddingBottom: 14, alignItems: 'center' }}>
@@ -292,7 +294,7 @@ export function Rail(p: NavProps & { onMore: () => void }) {
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: m.paused ? '#F0C159' : '#7ED892' }} />
             <Text style={{ fontSize: 13, fontWeight: '700', color: m.paused ? '#F0C159' : '#F2F0F4', fontVariant: ['tabular-nums'] }}>{clock(timerMs(m))}</Text>
           </Pressable>
-          <View style={{ gap: 6 }}><TimerButtons size={40} /></View>
+          {short ? null : <View style={{ gap: 6 }}><TimerButtons size={40} /></View>}
         </View>
       ) : null}
       <Pressable accessibilityRole="button" accessibilityLabel="You. Settings and your data folder" onPress={(e: any) => meMenu(e, p.go)} style={{ width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginTop: m ? 0 : 'auto' }}>

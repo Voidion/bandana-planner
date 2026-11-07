@@ -1,7 +1,7 @@
 /* Onboarding on Today: a banner while example data is loaded, and a Getting started checklist that ticks itself
    off as you do each thing for the first time, each with Show me. Hide it whenever you like (Settings › Help brings
    it back). */
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { loadExample, removeExample } from '../state/example';
 import { change, useShop } from '../state/store';
@@ -50,13 +50,14 @@ export function ExampleBanner() {
 export function GettingStarted({ go }: { go: Go }) {
   const shop = useShop();
   const t = useTheme();
+  const [w, setW] = useState(0);
   if (shop.startHidden) return null;
   const steps = startSteps(shop);
   const n = steps.filter(x => x.done).length;
   if (n === steps.length) return null;
   const next = steps.find(x => !x.done)!;
   return (
-    <View style={[{ backgroundColor: t.surface, borderRadius: 20, padding: 20, gap: 14 }, shadow(t.dark)]}>
+    <View onLayout={e => setW(e.nativeEvent.layout.width)} style={[{ backgroundColor: t.surface, borderRadius: 20, padding: 20, gap: 14 }, shadow(t.dark)]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <View style={{ flex: 1, minWidth: 220, gap: 2 }}>
           <Text style={{ fontSize: F.f16, fontWeight: '700', color: t.text }}>Getting started</Text>
@@ -68,6 +69,30 @@ export function GettingStarted({ go }: { go: Go }) {
           <Text style={{ fontSize: F.f14, fontWeight: '600', color: t.text3 }}>Hide</Text>
         </Pressable>
       </View>
+      {w >= 900 ? (
+        <>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {steps.map((x, i) => {
+              const isNext = x.id === next.id;
+              return (
+                <Pressable key={x.id} accessibilityRole="button" accessibilityLabel={`${i + 1}. ${x.title}${x.done ? ', done' : ''}`} accessibilityState={{ checked: x.done }} onPress={() => go(x.route, x.arg)}
+                  style={({ pressed }) => ({ flex: 1, minWidth: 0, gap: 8, padding: 12, minHeight: 92, borderRadius: 14, backgroundColor: isNext ? t.tint2 : pressed ? t.sunken : t.bg, borderWidth: isNext ? 1.5 : 0, borderColor: t.action })}>
+                  <View style={{ width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: x.done ? t.success : 'transparent', borderWidth: x.done ? 0 : 2, borderColor: isNext ? t.action : t.line2 }}>
+                    {x.done ? <CheckIcon color="#fff" size={15} /> : <Text style={{ fontSize: F.f13, fontWeight: '700', color: isNext ? t.action : t.text3 }}>{i + 1}</Text>}
+                  </View>
+                  <Text numberOfLines={2} style={{ fontSize: F.f14, fontWeight: isNext ? '700' : '500', color: x.done ? t.text3 : t.text }}>{x.title}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Pressable accessibilityRole="button" onPress={() => go(next.route, next.arg)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 14, borderRadius: 12, backgroundColor: pressed ? t.sunken : 'transparent' })}>
+            <Text style={{ flex: 1, fontSize: F.f15, color: t.text2 }}><Text style={{ fontWeight: '700', color: t.text }}>Next: {next.title}. </Text>{next.how}</Text>
+            <Text style={{ fontSize: F.f14, fontWeight: '600', color: t.action }}>Show me</Text>
+            <ChevIcon color={t.action} size={14} />
+          </Pressable>
+        </>
+      ) : (
+      <>
       <View style={{ height: 6, borderRadius: 3, backgroundColor: t.sunken, overflow: 'hidden' }}><View style={{ height: 6, width: `${(n / steps.length) * 100}%`, backgroundColor: t.success }} /></View>
       <View style={{ gap: 2 }}>
         {steps.map((x, i) => {
@@ -88,6 +113,8 @@ export function GettingStarted({ go }: { go: Go }) {
           );
         })}
       </View>
+      </>
+      )}
     </View>
   );
 }

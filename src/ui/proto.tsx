@@ -243,7 +243,7 @@ export function DateChips({ value, days, onPick, fitDay, onOther }: { value: str
   const cur = rel(value);
   const list = [...new Set([...days, ...(cur != null && !days.includes(cur) ? [cur] : []), ...(fitDay != null ? [fitDay] : [])])].sort((a, b) => a - b);
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 2 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 2 }}>
       {list.map(d => {
         const day = addDays(todayDay(), d);
         const on = cur === d;
@@ -263,7 +263,7 @@ export function DateChips({ value, days, onPick, fitDay, onOther }: { value: str
           <CalIcon color={t.action} size={18} />
         </Pressable>
       ) : null}
-    </ScrollView>
+    </View>
   );
 }
 

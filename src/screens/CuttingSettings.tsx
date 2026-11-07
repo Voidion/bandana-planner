@@ -89,14 +89,14 @@ export function CuttingSettings() {
 
   const left = (
     <View style={{ gap: 18 }}>
-      <WList bg>
+      <WList>
         <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1 }}><Text style={{ fontSize: F.f15, color: t.text }}>Bolt width</Text><Text style={{ fontSize: F.f14, color: t.text3 }}>What your fabric comes off the roll at</Text></View>
           <NumField bare label="Bolt width" value={c.bolt} onChange={x => setCut({ bolt: Math.min(120, Math.max(10, x || 44)) })} suffix="in" width={110} />
         </View>
       </WList>
       <Sect title="Mat" right={<Text style={{ fontSize: F.f14, color: t.text3 }}>Cricut Venture</Text>}>
-        <WList bg>
+        <WList>
           {MATS.map(m => {
             const on = m.id === c.mat;
             const sc = 34 / 28;
@@ -116,7 +116,7 @@ export function CuttingSettings() {
         </WList>
       </Sect>
       <Sect title="Fabric width" right={<Text style={{ fontSize: F.f14, color: t.text3 }}>blade reaches {inch(vm.w)}</Text>}>
-        <View style={{ backgroundColor: t.bg, borderRadius: 16, padding: 16, gap: 12 }}>
+        <View style={[{ backgroundColor: t.surface, borderRadius: 20, padding: 16, gap: 12 }, shadow(t.dark)]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <Text style={{ fontSize: 32, fontWeight: '700', color: t.text, fontVariant: ['tabular-nums'] }}>{inch(c.width)}</Text>
             <Chip tone={off < 0.01 ? 'ok' : 'warn'} label={off < 0.01 ? `${n} strips · exact` : `${plural(n, 'strip')} · ${inch(off)} offcut`} />
@@ -158,7 +158,7 @@ export function CuttingSettings() {
           {exact.length ? <Text style={{ fontSize: F.f13, color: t.text3 }}>The marks on the slider are strip widths that divide your {inch(c.bolt)} bolt exactly.</Text> : null}
         </View>
       </Sect>
-      <WList bg>
+      <WList>
         <View style={{ minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1 }}><Text style={{ fontSize: F.f15, color: t.text }}>Cut length</Text><Text style={{ fontSize: F.f14, color: t.text3 }}>Down the mat, up to {inch(vm.l)} on this one</Text></View>
           <NumField bare label="Cut length" value={c.matLen} onChange={x => setCut({ matLen: Math.min(vm.l, Math.max(1, x || vm.l)) })} suffix="in" width={110} />
@@ -193,7 +193,7 @@ export function CuttingSettings() {
       ) : null}
       {cp ? (
         <Sect title="Example layout" right={<Text style={{ fontSize: F.f14, color: t.text3 }}>12 Medium, 6 Large</Text>}>
-          <View style={{ backgroundColor: t.bg, borderRadius: 16, padding: 16, gap: 12 }}>
+          <View style={[{ backgroundColor: t.surface, borderRadius: 20, padding: 16, gap: 12 }, shadow(t.dark)]}>
             <Text style={{ fontSize: F.f14, color: t.text2, lineHeight: 20 }}>
               {plural(cp.bm.length, 'bandana mat')} of {inch(c.width)} × {inch(c.matLen)} with up to <Text style={{ fontWeight: '700', color: t.text }}>{cp.per}</Text> on a mat, plus {plural(cp.sm.length, 'strap mat')}. About {(cp.yards + cp.strapYards).toFixed(1)} yd of fabric, {pct(cp.waste)} waste.{cp.tooBig ? ` ${plural(cp.tooBig, 'piece')} too big for this mat.` : ''}
             </Text>
@@ -206,7 +206,7 @@ export function CuttingSettings() {
       ) : <Note>Add a cut size for Medium and Large to see an example layout.</Note>}
       {jobs.length ? (
         <Sect title="Runs still to cut" right={<Text style={{ fontSize: F.f14, color: t.text3 }}>with their own fabric</Text>}>
-          <WList bg>
+          <WList>
             {jobs.map(j => {
               const p = runPlanNow(shop, j);
               if (!p || !j.run) return null;

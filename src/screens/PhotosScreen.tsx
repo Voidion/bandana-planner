@@ -225,7 +225,7 @@ export function PhotosScreen({ go }: { go: (r: string, id?: string) => void }) {
     );
     body = (
       <ScrollView onLayout={e => setW(e.nativeEvent.layout.width)} contentContainerStyle={{ paddingBottom: 120 }}>
-        {coll ? head(collTitle, plural(list.length, 'photo'), right, () => { setColl(null); setSel(null); }) : head('Library', plural(alive.length, 'photo'), right)}
+        {coll ? head(collTitle, plural(list.length, 'photo'), right, () => { setColl(null); setSel(null); }) : head('Library', alive.length ? plural(alive.length, 'photo') : '', right)}
         {al ? (
           <View style={{ marginHorizontal: 32, marginBottom: 14, padding: 16, borderRadius: 20, backgroundColor: t.surface, gap: 12 }}>
             <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>

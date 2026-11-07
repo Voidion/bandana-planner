@@ -49,7 +49,7 @@ export function CustomersScreen({ sel, setSel, openOrder, openQuote, go }: { sel
         chips={<>
           {st.owed > 0 ? <Chip tone="warn" label={`${money0(st.owed)} owed`} /> : null}
           {op ? <Chip label={`${op} open`} /> : null}
-          {st.repeat ? <Chip tone="ok" label={`${st.n} orders`} /> : st.n === 1 ? <Chip label="1 order" /> : <Chip label="No orders yet" />}
+          {st.repeat ? <Chip tone="ok" label={`${st.n} orders`} /> : st.n === 1 ? <Chip label="1 order" /> : op ? null : <Chip label="No orders yet" />}
         </>}
         menu={[
           { label: 'Open', onPress: () => setSel(c.id) },

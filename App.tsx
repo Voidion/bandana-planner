@@ -33,7 +33,7 @@ import { closeOutTimer, flush, getShop, loadShop, planRun, restoreTimer, update,
 import { Inbox } from './src/shell/Inbox';
 import { COMPACT, IconBtn, NAV, PeekScrim, Rail, Sidebar, type Route } from './src/shell/Sidebar';
 import { BellIcon, SearchIcon, SplitIcon } from './src/ui/icons';
-import { Button, closeMenu, ContextMenuHost, menuOpen, openMenuAt, Sheet, showSnack, SnackBar, T } from './src/ui/kit';
+import { Button, closeMenu, ContextMenuHost, menuOpen, openMenuAt, PortalHost, Sheet, showSnack, SnackBar, T } from './src/ui/kit';
 import { F, shadow, useTheme } from './src/ui/theme';
 import { useNow } from './src/ui/useNow';
 
@@ -225,6 +225,7 @@ export default function App() {
         <SetupWizard onDone={() => { setSetupOpen(false); setRoute('today'); }} onTour={() => { setSetupOpen(false); setSplit(s => ({ ...s, on: false })); setTour(0); }} />
       ) : null}
       {tour != null ? <TourOverlay step={tour} setStep={setTour} onDone={endTour} go={r => { setPeek(false); setRoute(r as Route); }} /> : null}
+      <PortalHost />
       <ContextMenuHost />
       <SnackBar />
     </View>

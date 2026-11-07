@@ -1,5 +1,5 @@
 /* Shared components: one of each, used everywhere (same spec as the prototype, a little denser for desktop). */
-import React, { useEffect, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { parseNum } from '../lib/format';
 import { F, R, shadow, useTheme } from './theme';
@@ -260,7 +260,7 @@ export function Segmented<V extends string>({ value, options, onChange, label, b
       <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ flexDirection: 'row', gap: 2, backgroundColor: t.sunken, borderRadius: 14, padding: 3, alignSelf: fill ? 'stretch' : 'flex-start' }}>
         {options.map(([v, l]) => (
           <Pressable key={v} accessibilityRole="radio" accessibilityState={{ checked: v === value }} onPress={() => onChange(v)}
-            style={[{ flex: fill ? 1 : undefined, paddingHorizontal: 12, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: v === value ? t.surface : 'transparent' }, v === value && !t.dark ? { shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : null]}>
+            style={[{ flex: fill ? 1 : undefined, paddingHorizontal: 12, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 11, backgroundColor: v === value ? (t.dark ? t.line2 : t.surface) : 'transparent' }, v === value && !t.dark ? { shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : null]}>
             <Text numberOfLines={1} style={{ color: v === value ? t.text : t.text2, fontSize: F.f15, fontWeight: '600' }}>{l}</Text>
           </Pressable>
         ))}
@@ -363,7 +363,54 @@ export function SnackBar() {
 }
 
 /* ---------- sheet (a panel over the app; no native Modal needed) ---------- */
-export function Sheet({ title, sub, onClose, children, footer, width = 520 }: { title: string; sub?: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; width?: number }) {
+/* ---------- portal: sheets draw over the whole window, wherever they're opened from (a sheet opened inside a
+   scrolling pane used to be trapped in that pane and scroll with it) ---------- */
+const portals = new Map<number, React.ReactNode>();
+const portalSubs = new Set<() => void>();
+let portalVer = 0;
+let portalSeq = 0;
+const portalEmit = () => {
+  portalVer++;
+  portalSubs.forEach(f => f());
+};
+export function PortalHost() {
+  useSyncExternalStore(
+    f => {
+      portalSubs.add(f);
+      return () => portalSubs.delete(f);
+    },
+    () => portalVer,
+  );
+  return <>{[...portals.entries()].map(([k, n]) => <View key={k} pointerEvents="box-none" style={StyleSheet.absoluteFill}>{n}</View>)}</>;
+}
+const portalClose = new Map<number, () => void>();
+export function Portal({ children, onClose }: { children: React.ReactNode; onClose?: () => void }) {
+  const id = useRef(0);
+  if (!id.current) id.current = ++portalSeq;
+  useLayoutEffect(() => {
+    portals.set(id.current, children);
+    if (onClose) portalClose.set(id.current, onClose);
+    portalEmit();
+  });
+  useLayoutEffect(() => () => {
+    portals.delete(id.current);
+    portalClose.delete(id.current);
+    portalEmit();
+  }, []);
+  return null;
+}
+/** Esc closes the sheet on top, if there is one */
+export function closeTopSheet() {
+  const ids = [...portalClose.keys()];
+  if (!ids.length) return false;
+  portalClose.get(Math.max(...ids))!();
+  return true;
+}
+
+export function Sheet(props: { title: string; sub?: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; width?: number }) {
+  return <Portal onClose={props.onClose}><SheetBody {...props} /></Portal>;
+}
+function SheetBody({ title, sub, onClose, children, footer, width = 520 }: { title: string; sub?: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; width?: number }) {
   const t = useTheme();
   return (
     <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>

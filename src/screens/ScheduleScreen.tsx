@@ -408,7 +408,7 @@ export function ScheduleScreen({ go }: { go: Go }) {
   const ev = edit ? shop.cal.find(e => e.id === edit) : null;
   return (
     <ScrollView contentContainerStyle={{ alignItems: 'center' }} onLayout={e => setW(e.nativeEvent.layout.width)}>
-      <View style={{ width: '100%', maxWidth: 1240, paddingHorizontal: 32, paddingTop: 32, paddingBottom: 60, gap: 18 }}>
+      <View style={{ width: '100%', maxWidth: 1480, paddingHorizontal: 32, paddingTop: 32, paddingBottom: 60, gap: 18 }}>
         <PageHead title="Schedule" />
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <View style={{ flex: 1 }}><Segmented fill bare label="View" value={view} onChange={setView} options={[['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List']]} /></View>

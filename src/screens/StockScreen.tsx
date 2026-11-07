@@ -6,7 +6,7 @@ import { dayLabel, money, money0, plural, relDue } from '../lib/format';
 import { itemName, itemPrice, rel, runNumbers } from '../lib/plan';
 import { adjustStock, useShop } from '../state/store';
 import { canFill, fillFromStock, freeStock, orderCount, orderLabel, orderStage, unfill } from '../state/selling';
-import { ChevIcon, WarnIcon } from '../ui/icons';
+import { BoxIcon, ChevIcon, WarnIcon } from '../ui/icons';
 import { Button, Chip, Sheet, showSnack, Stepper, T } from '../ui/kit';
 import { CustAv, FitCard, Note, OCard, PageHead, Sect, Strip, Sublab, WList } from '../ui/proto';
 import { F, R, shadow, useTheme } from '../ui/theme';
@@ -25,7 +25,8 @@ export function StockScreen({ openRun, go }: { openRun: (id: string) => void; go
   shop.stock.filter(s => !promisedRun(s.run)).forEach(s => (groups[s.run] = groups[s.run] || []).push(s));
   const sizes = Object.entries(shop.sizes).filter(([k, z]) => z.price != null || by[k]);
   const prods = shop.products.map(p => [p, p.variants.filter(v => (by[v.id] || 0) > 0)] as const).filter(([, v]) => v.length);
-  const runsOf = (k: string) => new Set(shop.stock.filter(s => s.size === k && !promisedRun(s.run)).map(s => s.run)).size;
+  const runsOf = (k: string) => new Set(shop.stock.filter(s => s.size === k && !promisedRun(s.run) && shop.runs.some(r => r.id === s.run)).map(s => s.run)).size;
+  const fromWhere = (k: string) => (runsOf(k) ? `from ${plural(runsOf(k), 'run')}` : 'added by hand');
   const fillable = shop.orders.filter(o => orderStage(shop, o) === 'plan' && canFill(shop, o));
   const aside = shop.orders.filter(o => o.status !== 'delivered' && (o.fromStock.length || (o.run && shop.stock.some(x => x.run === o.run))));
   const asideN = (o: (typeof aside)[number]) => (o.fromStock.length ? o.fromStock.reduce((a, l) => a + l.n, 0) : shop.stock.filter(x => x.run === o.run).reduce((a, x) => a + x.n, 0));
@@ -47,7 +48,7 @@ export function StockScreen({ openRun, go }: { openRun: (id: string) => void; go
   const left = (
     <>
       <Sect title="Ready to sell" right="click to adjust a count">
-        {sizes.length ? <WList>{sizes.map(([k, z]) => szRow(k, z.name, z.price, by[k] || 0, `${z.price != null ? money(z.price) + ' each' : 'Not priced'}${by[k] ? ` · from ${plural(runsOf(k), 'run')}` : ''}`))}</WList> : <Note style={{ paddingHorizontal: 0 }}>Add your sizes in Settings first.</Note>}
+        {sizes.length ? <WList>{sizes.map(([k, z]) => szRow(k, z.name, z.price, by[k] || 0, `${z.price != null ? money(z.price) + ' each' : 'Not priced'}${by[k] ? ` · ${fromWhere(k)}` : ''}`))}</WList> : <Note style={{ paddingHorizontal: 0 }}>Add your sizes in Settings first.</Note>}
         {prods.map(([p, vs]) => (
           <View key={p.id}>
             <Sublab>{p.name}</Sublab>
@@ -70,10 +71,10 @@ export function StockScreen({ openRun, go }: { openRun: (id: string) => void; go
                       <Text style={{ fontSize: F.f15, fontWeight: '700', color: t.text }}>{c ? c.name : o.title || 'Order'}</Text>
                       <Text style={{ fontSize: F.f13, color: t.text3 }}>{orderLabel(shop, o)}{o.due ? ' · ' + relDue(rel(o.due)).toLowerCase() : ''}</Text>
                     </View>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                    {leaves ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><WarnIcon color={t.warn} size={16} /><Text style={{ fontSize: F.f13, fontWeight: '600', color: t.warn }}>{leaves}</Text></View> : <View />}
                     <Button small title="Fill from stock" onPress={() => { if (fillFromStock(o.id)) showSnack('Set aside from stock. Ready to send', () => unfill(o.id)); }} />
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, display: leaves ? 'flex' : 'none' }}>
+                    {leaves ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><WarnIcon color={t.warn} size={16} /><Text style={{ fontSize: F.f13, fontWeight: '600', color: t.warn }}>{leaves}</Text></View> : <View />}
                   </View>
                 </View>
               );
@@ -104,7 +105,7 @@ export function StockScreen({ openRun, go }: { openRun: (id: string) => void; go
             {Object.entries(groups).map(([rid, list]) => {
               const r = shop.runs.find(x => x.id === rid);
               const n = list.reduce((a, x) => a + x.n, 0);
-              return <OCard key={rid} onPress={() => (r ? openRun(r.id) : setAdj(list[0].size))} av={r ? <RunThumb r={r} size={42} /> : <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: t.sunken }} />} title={rid === 'adj' ? 'Added by hand' : r ? (r.name || 'Untitled run').split(' — ')[0] : 'Older run'} value={String(n)} sub={list.map(x => `${x.n} ${itemName(shop, x.size)}`).join(', ')} />;
+              return <OCard key={rid} onPress={() => (r ? openRun(r.id) : setAdj(list[0].size))} av={r ? <RunThumb r={r} size={42} /> : <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: t.sunken, alignItems: 'center', justifyContent: 'center' }}><BoxIcon color={t.text2} size={20} /></View>} title={rid === 'adj' ? 'Added by hand' : rid === 'example' ? 'Example stock' : r ? (r.name || 'Untitled run').split(' — ')[0] : 'Older run'} value={String(n)} sub={list.map(x => `${x.n} ${itemName(shop, x.size)}`).join(', ')} />;
             })}
           </View>
         ) : <Note style={{ paddingHorizontal: 0 }}>Nothing in stock yet. When you finish a run, its bandanas land here.</Note>}

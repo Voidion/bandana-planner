@@ -98,7 +98,7 @@ export function SettingsScreen({ tab, setTab, openRun, go }: { tab: SettingsTab;
     : cur === 'help' ? <HelpPage go={go} />
     : <ShopSettings part={cur as 'reminders' | 'shortcuts' | 'data'} />;
   const detail = (
-    <View style={[{ backgroundColor: t.surface, borderRadius: 20, paddingHorizontal: 28, paddingTop: 24, paddingBottom: 28, gap: 18 }, shadow(t.dark)]}>
+    <View style={{ gap: 18 }}>
       <Text style={{ fontSize: F.f28, fontWeight: '700', color: t.text }}>{curRow[1]}</Text>
       {body}
     </View>
@@ -110,7 +110,7 @@ export function SettingsScreen({ tab, setTab, openRun, go }: { tab: SettingsTab;
           <PageHead sup={shop.shopName || 'Your shop'} title="Shop settings" />
           {list}
         </ScrollView>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 104, paddingBottom: 60, paddingRight: 32, maxWidth: 1000 }}>{detail}</ScrollView>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 36, paddingBottom: 60, paddingRight: 32 }}>{detail}</ScrollView>
       </View>
     );
   return (
@@ -159,7 +159,7 @@ function HelpPage({ go }: { go: (route: string, id?: string) => void }) {
       </View>
       <View style={{ gap: 8 }}>
         <T s="h2">Example data</T>
-        <View style={{ backgroundColor: t.bg, borderRadius: 16, padding: 16, gap: 10 }}>
+        <View style={{ backgroundColor: t.surface, borderRadius: 16, ...shadow(t.dark), padding: 16, gap: 10 }}>
           <Text style={{ fontSize: F.f15, color: t.text2, lineHeight: 22 }}>{shop.example ? 'Example fabrics, runs, customers, an order, a quote and sales are loaded to practise on. Removing them takes out only what the example added; anything you made stays.' : 'Load a few example fabrics, runs at different stages, customers, an order, a quote and some sales to try things on. Remove them in one go when you’re ready.'}</Text>
           {shop.example
             ? <Button small kind="secondary" title="Remove example data" style={{ alignSelf: 'flex-start' }} onPress={() => { removeExample(); showSnack('Example data removed'); }} />
@@ -168,7 +168,7 @@ function HelpPage({ go }: { go: (route: string, id?: string) => void }) {
       </View>
       <View style={{ gap: 8 }}>
         <T s="h2">Getting started · {done} of {steps.length}</T>
-        <View style={{ backgroundColor: t.bg, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 6 }}>
+        <View style={{ backgroundColor: t.surface, borderRadius: 16, ...shadow(t.dark), paddingHorizontal: 14, paddingVertical: 6 }}>
           {steps.map((x, i) => (
             <Pressable key={x.id} accessibilityRole="button" onPress={() => go(x.route, x.arg)} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56, paddingVertical: 10, borderTopWidth: i ? 1 : 0, borderTopColor: t.line }}>
               <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: x.done ? t.success : 'transparent', borderWidth: x.done ? 0 : 2, borderColor: t.line2 }}>{x.done ? <CheckIcon color="#fff" size={14} /> : null}</View>
@@ -184,7 +184,7 @@ function HelpPage({ go }: { go: (route: string, id?: string) => void }) {
       <View style={{ gap: 8 }}>
         <T s="h2">How the work flows</T>
         {HOW.map(([title, body, route], i) => (
-          <View key={title} style={{ flexDirection: 'row', gap: 14, backgroundColor: t.bg, borderRadius: 16, padding: 16 }}>
+          <View key={title} style={{ flexDirection: 'row', gap: 14, backgroundColor: t.surface, borderRadius: 16, ...shadow(t.dark), padding: 16 }}>
             <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: t.tint, alignItems: 'center', justifyContent: 'center' }}><Text style={{ fontSize: F.f14, fontWeight: '700', color: t.onTint }}>{i + 1}</Text></View>
             <View style={{ flex: 1, gap: 6 }}>
               <Text style={{ fontSize: F.f16, fontWeight: '700', color: t.text }}>{title}</Text>
@@ -220,7 +220,7 @@ function Goals() {
   );
   return (
     <View style={{ gap: 16, maxWidth: 560 }}>
-      <View style={{ backgroundColor: t.bg, borderRadius: 16, padding: 18, gap: 14 }}>
+      <View style={{ backgroundColor: t.surface, borderRadius: 16, ...shadow(t.dark), padding: 18, gap: 14 }}>
         {bar('Income this month', money0(income), money0(shop.goals.income), income / Math.max(1, shop.goals.income))}
         {bar('Hours this month', `${Math.round(hours)}h`, `${shop.goals.hours}h`, hours / Math.max(1, shop.goals.hours))}
       </View>
@@ -252,7 +252,7 @@ function QuoteLook() {
     <View style={{ gap: 18 }}>
       <View style={{ gap: 8 }}>
         <T s="h2">Logo</T>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: t.bg, borderRadius: 16, padding: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: t.surface, borderRadius: 16, ...shadow(t.dark), padding: 14 }}>
           {lg ? <Image source={{ uri: lg.src }} style={{ width: 52, height: 52, borderRadius: 15 }} /> : (
             <View style={{ width: 52, height: 52, borderRadius: 15, backgroundColor: '#8A4B0C', alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: '#fff', fontWeight: '800', fontSize: 22 }}>{((shop.shopName || 'S').trim()[0] || 'S').toUpperCase()}</Text></View>
           )}

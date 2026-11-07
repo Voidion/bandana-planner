@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { dayLabel, mins, money, money0, plural, relDue, yd } from '../../lib/format';
-import { addDays, computePlan, planCount, rel, runNumbers, sizeReady, todayDay } from '../../lib/plan';
+import { computePlan, planCount, rel, runNumbers, sizeReady, todayDay } from '../../lib/plan';
 import {
   addStep,
   deleteRun,
@@ -25,6 +25,7 @@ import { F, R, shadow, useTheme } from '../../ui/theme';
 import { CutLayout, InThisRun, MoneyCard, otherCount, shortName, StepRow, StepsBox, Tile } from './parts';
 import { PhotoStrip } from '../PhotosScreen';
 import { ListingSheet } from './ListingSheet';
+import { CalendarSheet, DateChips } from '../../ui/proto';
 import { CutSheet, DefectSheet, FabricPicker, FinishSheet, StepSheet } from './sheets';
 
 type SheetState = null | { k: 'listing' } | { k: 'cut' } | { k: 'step'; id: string } | { k: 'finish' } | { k: 'defect' } | { k: 'pick'; role: 'body' | 'ties' };
@@ -192,30 +193,20 @@ function Hero({ r, right }: { r: Run; right?: React.ReactNode }) {
   );
 }
 
-/* ---------- due date: no calendar control on Windows, so quick picks and a day stepper ---------- */
+/* ---------- due date: the same date chips and calendar as orders and quotes ---------- */
 function DueField({ value, onChange }: { value: string | null; onChange: (d: string | null) => void }) {
   const t = useTheme();
   const d = rel(value);
-  const quick: [string, number | null][] = [['No date', null], ['1 week', 7], ['2 weeks', 14], ['3 weeks', 21], ['4 weeks', 28]];
+  const [cal, setCal] = useState(false);
   return (
-    <View style={{ gap: 6 }}>
-      <T s="label">Due</T>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: t.line2, borderRadius: R.control, backgroundColor: t.surface, minHeight: 38 }}>
-          <Pressable accessibilityRole="button" accessibilityLabel="A day earlier" onPress={() => onChange(addDays(value || todayDay(), -1))} style={{ width: 34, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' }}><T style={{ fontSize: 18 }}>‹</T></Pressable>
-          <T style={{ minWidth: 150, textAlign: 'center', fontWeight: '600' }}>{value ? dayLabel(value) : 'No date'}</T>
-          <Pressable accessibilityRole="button" accessibilityLabel="A day later" onPress={() => onChange(addDays(value || todayDay(), 1))} style={{ width: 34, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' }}><T style={{ fontSize: 18 }}>›</T></Pressable>
-        </View>
-        {quick.map(([l, n]) => {
-          const on = n == null ? !value : d === n;
-          return (
-            <Pressable key={l} accessibilityRole="button" onPress={() => onChange(n == null ? null : addDays(todayDay(), n))} style={{ paddingHorizontal: 12, minHeight: 32, justifyContent: 'center', borderRadius: R.chip, backgroundColor: on ? t.tint : t.sunken }}>
-              <T style={{ fontSize: F.f13, fontWeight: '600' }} color={on ? t.onTint : t.text2}>{l}</T>
-            </Pressable>
-          );
-        })}
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <T s="label" style={{ flex: 1 }}>Due</T>
+        {value ? <Pressable accessibilityRole="button" onPress={() => onChange(null)} style={{ minHeight: 32, justifyContent: 'center' }}><T style={{ fontSize: F.f14, fontWeight: '600' }} color={t.action}>No date</T></Pressable> : <T s="small">No date yet</T>}
       </View>
+      <DateChips value={value} days={[7, 14, 21, 28]} onPick={onChange} onOther={() => setCal(true)} />
       {value ? <T s="small" color={d != null && d < 0 ? t.danger : t.text3}>{relDue(d)}</T> : null}
+      {cal ? <CalendarSheet title="Due" value={value || todayDay()} onPick={x => { if (x) onChange(x); setCal(false); }} onClose={() => setCal(false)} /> : null}
     </View>
   );
 }

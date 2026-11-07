@@ -106,13 +106,19 @@ function Shelf({ pick, onAdd, go }: { pick: (id: string) => void; onAdd: () => v
         ) : null}
         {all.length ? (
           <View style={{ gap: 12 }}>
-            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-              {all.length > 5 ? (
-                <View style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingHorizontal: 14, borderRadius: 14, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line }, shadow(t.dark)]}>
-                  <SearchIcon color={t.text3} size={18} />
-                  <TextInput accessibilityLabel="Search fabric and supplies" value={q} onChangeText={setQ} placeholder="Search" placeholderTextColor={t.text3} style={{ flex: 1, fontSize: F.f15, color: t.text, paddingVertical: 8 }} />
-                </View>
-              ) : <View style={{ flex: 1 }} />}
+            {all.length > 5 ? (
+              <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingHorizontal: 14, borderRadius: 14, backgroundColor: t.surface, borderWidth: 1, borderColor: t.line }, shadow(t.dark)]}>
+                <SearchIcon color={t.text3} size={18} />
+                <TextInput accessibilityLabel="Search fabric and supplies" value={q} onChangeText={setQ} placeholder="Search" placeholderTextColor={t.text3} style={{ flex: 1, fontSize: F.f15, color: t.text, paddingVertical: 8 }} />
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              {chip('all', 'All')}{chip('low', 'Low')}{chip('order', 'On order')}{chip('dir', 'Directional')}
+              <View style={{ flex: 1 }} />
+              <Pressable accessibilityRole="button" accessibilityLabel={`Sort: ${SORTS.find(x => x[0] === sort)![1]}`} onPress={(e: any) => { const n = e?.nativeEvent || {}; openMenuAt(n.pageX ?? 900, n.pageY ?? 300, SORTS.map(([k, l]) => ({ label: (k === sort ? '✓  ' : '     ') + l, onPress: () => setSort(k) }))); }}
+                style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 20, justifyContent: 'center', borderWidth: 1, borderColor: t.line2 }}>
+                <Text style={{ fontSize: F.f13, fontWeight: '600', color: t.text2 }}>{SORTS.find(x => x[0] === sort)![1]}</Text>
+              </Pressable>
               <View style={{ flexDirection: 'row', gap: 2, padding: 3, borderRadius: 14, backgroundColor: t.sunken }}>
                 {(['grid', 'list'] as const).map(v => (
                   <Pressable key={v} accessibilityRole="radio" accessibilityLabel={v === 'grid' ? 'Grid' : 'List'} accessibilityState={{ checked: view === v }} onPress={() => setView(v)}
@@ -121,14 +127,6 @@ function Shelf({ pick, onAdd, go }: { pick: (id: string) => void; onAdd: () => v
                   </Pressable>
                 ))}
               </View>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              {chip('all', 'All')}{chip('low', 'Low')}{chip('order', 'On order')}{chip('dir', 'Directional')}
-              <View style={{ flex: 1 }} />
-              <Pressable accessibilityRole="button" accessibilityLabel={`Sort: ${SORTS.find(x => x[0] === sort)![1]}`} onPress={(e: any) => { const n = e?.nativeEvent || {}; openMenuAt(n.pageX ?? 900, n.pageY ?? 300, SORTS.map(([k, l]) => ({ label: (k === sort ? '✓  ' : '     ') + l, onPress: () => setSort(k) }))); }}
-                style={{ minHeight: 40, paddingHorizontal: 12, borderRadius: 20, justifyContent: 'center', borderWidth: 1, borderColor: t.line2 }}>
-                <Text style={{ fontSize: F.f13, fontWeight: '600', color: t.text2 }}>{SORTS.find(x => x[0] === sort)![1]}</Text>
-              </Pressable>
             </View>
           </View>
         ) : (
