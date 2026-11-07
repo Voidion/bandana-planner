@@ -178,6 +178,14 @@ function refreshDrafts(s: Shop): Shop {
   return { ...s, runs: s.runs.map(r => refreshRun(s, r)) };
 }
 
+/** A run that was opened but never given a name, a quantity, notes or any work (left behind by Plan a run) */
+export const isEmptyDraft = (r: Run) => r.status === 'draft' && !r.cut && !(r.name || '').trim() && !(r.notes || '').trim() && !Object.values(r.qty || {}).some(Boolean) && !r.steps.some(x => x.done);
+/** Clears empty drafts, except the one being looked at */
+export function pruneEmptyDrafts(keep?: string | null) {
+  const s = getShop();
+  if (!s.runs.some(r => r.id !== keep && isEmptyDraft(r))) return;
+  update(x => ({ ...x, runs: x.runs.filter(r => r.id === keep || !isEmptyDraft(r)) }));
+}
 export function planRun(from?: Partial<Run>): string {
   const id = newId('r');
   update(s => {

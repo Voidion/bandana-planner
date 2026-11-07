@@ -1,5 +1,6 @@
 /* Bandana Planner for Windows: laid out like the prototype's desktop view — sidebar or icon rail, the bell, Split view. */
 import React, { useEffect, useRef, useState } from 'react';
+import { pruneEmptyDrafts } from './src/state/store';
 import { PanResponder, Pressable, StatusBar, Text, useWindowDimensions, View } from 'react-native';
 import { clock } from './src/lib/format';
 import { timerMs } from './src/lib/plan';
@@ -97,6 +98,11 @@ export default function App() {
     if (r === 'settings' && id) setSetTab(id as SettingsTab);
     show(r);
   };
+  // A run opened with Plan a run and left without a name or any bandanas is cleared away
+  const runShown = route === 'runs' || (split.on && split.right === 'runs');
+  useEffect(() => {
+    pruneEmptyDrafts(runShown ? runSel : null);
+  }, [runShown, runSel]);
   const openRun = (id: string) => go('runs', id);
   const openOrder = (id: string) => go('orders', id);
   const openFabric = (id: string) => go('fabric', id);

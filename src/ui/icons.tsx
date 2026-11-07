@@ -1,13 +1,31 @@
-/* Line icons from the prototype's set (24px grid, 1.8 stroke). */
+/* Line icons from the prototype's set (24px grid, 1.8 stroke).
+   react-native-svg on Windows doesn't pass fill and stroke down from <Svg> to the shapes inside it (they come out
+   as solid black blobs), so every shape gets its paint set directly by paint(). */
 import React from 'react';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 type P = { size?: number; color: string; sw?: number };
+type Paint = { fill: string; stroke: string; strokeWidth?: number; strokeLinecap?: 'round'; strokeLinejoin?: 'round' };
+/** Sets fill, stroke and line style on every shape that doesn't set its own (Fragments are walked into) */
+export function paint(node: React.ReactNode, p: Paint): React.ReactNode {
+  return React.Children.map(node, child => {
+    if (!React.isValidElement(child)) return child;
+    const props: any = child.props;
+    if (child.type === React.Fragment) return <>{paint(props.children, p)}</>;
+    const add: any = {};
+    (Object.keys(p) as (keyof Paint)[]).forEach(k => {
+      if (props[k] === undefined && p[k] !== undefined) add[k] = p[k];
+    });
+    if (props.children) add.children = paint(props.children, p);
+    return React.cloneElement(child, add);
+  });
+}
+const line = (color: string, sw: number): Paint => ({ fill: 'none', stroke: color, strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round' });
 const I = (children: React.ReactNode) =>
   function Icon({ size = 20, color, sw = 1.8 }: P) {
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-        {children}
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        {paint(children, line(color, sw))}
       </Svg>
     );
   };
@@ -63,8 +81,8 @@ export const BatchesIcon = I(
 const F = (children: React.ReactNode) =>
   function Icon({ size = 16, color }: P) {
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
-        {children}
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        {paint(children, { fill: color, stroke: 'none' })}
       </Svg>
     );
   };
@@ -190,8 +208,8 @@ export const PhotoIcon = I(
 const I2 = (children: React.ReactNode, base = 2) =>
   function Icon({ size = 20, color, sw = base }: P) {
     return (
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
-        {children}
+      <Svg width={size} height={size} viewBox="0 0 24 24">
+        {paint(children, line(color, sw))}
       </Svg>
     );
   };
@@ -212,18 +230,18 @@ export const SunIcon = I(<><Circle cx="12" cy="12" r="4" /><Path d="M12 2.8v1.9M
 export const MoonIcon = I(<Path d="M19.5 14.6A8 8 0 0 1 9.4 4.5a8 8 0 1 0 10.1 10.1z" />);
 export function AutoThemeIcon({ size = 20, color }: P) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8}>
-      <Circle cx="12" cy="12" r="8.25" />
-      <Path d="M12 3.75a8.25 8.25 0 0 1 0 16.5z" fill={color} />
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="12" cy="12" r="8.25" fill="none" stroke={color} strokeWidth={1.8} />
+      <Path d="M12 3.75a8.25 8.25 0 0 1 0 16.5z" fill={color} stroke={color} strokeWidth={1.8} />
     </Svg>
   );
 }
 export function MoreIcon({ size = 22, color }: P) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-      <Circle cx="5.5" cy="12" r="1.7" />
-      <Circle cx="12" cy="12" r="1.7" />
-      <Circle cx="18.5" cy="12" r="1.7" />
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="5.5" cy="12" r="1.7" fill={color} />
+      <Circle cx="12" cy="12" r="1.7" fill={color} />
+      <Circle cx="18.5" cy="12" r="1.7" fill={color} />
     </Svg>
   );
 }

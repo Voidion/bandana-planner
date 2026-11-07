@@ -21,7 +21,7 @@ export function startSteps(s: Shop): Step[] {
     const set = new Set((ex && ex.ids[k]) || []);
     return list.filter(x => !set.has(x.id));
   };
-  const runs = mine(s.runs, 'runs');
+  const runs = mine(s.runs, 'runs').filter(r => Object.values(r.qty || {}).some(Boolean));
   return [
     { id: 'sizes', title: 'Set your sizes and prices', how: 'Each size’s cut size and price, so runs can be planned and priced.', done: Object.values(s.sizes).some(z => z.cw && z.cl && z.price != null), route: 'settings', arg: 'sizes' },
     { id: 'fabric', title: 'Put a fabric on the shelf', how: 'Fabric › Add, with the yards you have and what a yard cost.', done: mine(s.fabrics, 'fabrics').length > 0, route: 'fabric' },
